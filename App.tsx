@@ -61,7 +61,7 @@ const App: React.FC = () => {
     }, [resetGame]);
 
     const endGame = useCallback(() => {
-        playSound('/sounds/game-over.wav');
+        playSound('sounds/game-over.wav');
         setGameStatus(GameStatus.GameOver);
         if (score > highScore) {
             const newHighScore = score;
@@ -75,7 +75,7 @@ const App: React.FC = () => {
             e.preventDefault();
             if (gameStatus === GameStatus.Playing && rabbitY.current <= GROUND_HEIGHT) {
                 rabbitVelocityY.current = RABBIT_JUMP_VELOCITY;
-                playSound('/sounds/jump.wav');
+                playSound('sounds/jump.wav');
             } else if (gameStatus === GameStatus.Start || gameStatus === GameStatus.GameOver) {
                 startGame();
             }
@@ -114,7 +114,7 @@ const App: React.FC = () => {
         });
 
         if (passedTree) {
-            playSound('/sounds/score.wav');
+            playSound('sounds/score.wav');
             setScore(newScore);
         }
         
