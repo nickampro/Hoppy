@@ -14,6 +14,15 @@ import { Scoreboard } from './components/Scoreboard';
 import { StartScreen } from './components/StartScreen';
 import { GameOverScreen } from './components/GameOverScreen';
 
+const playSound = (soundFile: string) => {
+    try {
+        const audio = new Audio(soundFile);
+        audio.play().catch(e => console.warn(`Could not play sound ${soundFile}:`, e));
+    } catch (e) {
+        console.error(`Could not create audio for ${soundFile}:`, e);
+    }
+};
+
 const App: React.FC = () => {
     const getInitialHighScore = (): number => {
         const savedScore = localStorage.getItem(HIGH_SCORE_KEY);
@@ -31,7 +40,8 @@ const App: React.FC = () => {
     const trees = useRef<TreeType[]>([]);
     const gameSpeed = useRef(INITIAL_GAME_SPEED);
     const lastTreeTime = useRef(0);
-    const gameLoopId = useRef<number>();
+    // FIX: Initialize useRef with null to be more explicit and avoid ambiguity.
+    const gameLoopId = useRef<number | null>(null);
 
     const resetGame = useCallback(() => {
         rabbitY.current = GROUND_HEIGHT;
@@ -51,7 +61,7 @@ const App: React.FC = () => {
     }, [resetGame]);
 
     const endGame = useCallback(() => {
-        new Audio('/sounds/game-over.wav').play();
+        playSound('/sounds/game-over.wav');
         setGameStatus(GameStatus.GameOver);
         if (score > highScore) {
             const newHighScore = score;
@@ -65,7 +75,7 @@ const App: React.FC = () => {
             e.preventDefault();
             if (gameStatus === GameStatus.Playing && rabbitY.current <= GROUND_HEIGHT) {
                 rabbitVelocityY.current = RABBIT_JUMP_VELOCITY;
-                new Audio('/sounds/jump.wav').play();
+                playSound('/sounds/jump.wav');
             } else if (gameStatus === GameStatus.Start || gameStatus === GameStatus.GameOver) {
                 startGame();
             }
@@ -104,7 +114,7 @@ const App: React.FC = () => {
         });
 
         if (passedTree) {
-            new Audio('/sounds/score.wav').play();
+            playSound('/sounds/score.wav');
             setScore(newScore);
         }
         
@@ -119,14 +129,14 @@ const App: React.FC = () => {
             }
         }
         
-        const rabbitRect = { x: RABBIT_INITIAL_X, y: rabbitY.current, width: RABBIT_WIDTH-10, height: RABBIT_HEIGHT-10 };
+        const rabbitRect = { x: RABBIT_INITIAL_X, y: rabbitY.current, width: RABBIT_WIDTH - 10, height: RABBIT_HEIGHT - 10 };
         for (const tree of trees.current) {
             const treeRect = { x: tree.x, y: GROUND_HEIGHT, width: TREE_WIDTH, height: tree.height };
             if (
                 rabbitRect.x < treeRect.x + treeRect.width &&
                 rabbitRect.x + rabbitRect.width > treeRect.x &&
-                rabbitRect.y - rabbitRect.height < treeRect.y + treeRect.height &&
-                rabbitRect.y > treeRect.y
+                rabbitRect.y < treeRect.y + treeRect.height &&
+                rabbitRect.y + rabbitRect.height > treeRect.y
             ) {
                 endGame();
                 return;
@@ -144,7 +154,8 @@ const App: React.FC = () => {
             gameLoopId.current = requestAnimationFrame(gameLoop);
         }
         return () => {
-            if (gameLoopId.current) {
+            // FIX: Check for null to avoid a bug where an animation frame ID of 0 is considered falsy.
+            if (gameLoopId.current !== null) {
                 cancelAnimationFrame(gameLoopId.current);
             }
         };
@@ -160,7 +171,7 @@ const App: React.FC = () => {
                  <div className="absolute top-16 left-0 right-0 text-center pointer-events-none">
                     <h1 className="text-4xl text-white" style={{ textShadow: '3px 3px 0 #000' }}>Hoppy Avoidance! 🥕</h1>
                 </div>
-                <Rabbit x={RABBIT_INITIAL_X} y={renderedRabbitY} />
+                <Rabbit x={RABBIT_INITIAL_X} y={renderedRabbitY} isGameOver={gameStatus === GameStatus.GameOver} />
                 {renderedTrees.map(tree => (
                     <Tree key={tree.id} x={tree.x} height={tree.height} />
                 ))}

@@ -5,9 +5,10 @@ import { RABBIT_WIDTH, RABBIT_HEIGHT } from '../constants';
 interface RabbitProps {
   y: number;
   x: number;
+  isGameOver?: boolean;
 }
 
-export const Rabbit: React.FC<RabbitProps> = ({ y, x }) => {
+export const Rabbit: React.FC<RabbitProps> = ({ y, x, isGameOver }) => {
   return (
     <div
       className="absolute pixel-perfect"
@@ -16,7 +17,8 @@ export const Rabbit: React.FC<RabbitProps> = ({ y, x }) => {
         bottom: `${y}px`,
         width: `${RABBIT_WIDTH}px`,
         height: `${RABBIT_HEIGHT}px`,
-        transform: `translateY(50%)`
+        transform: isGameOver ? 'rotate(-90deg)' : 'none',
+        transition: 'transform 0.3s ease-in-out',
       }}
     >
       <div className="absolute w-[44px] h-[28px] bg-white border-2 border-black" style={{ bottom: '4px', left: '0px' }}></div>
