@@ -1,0 +1,5 @@
+{
+  "name": "Hoppy Avoidance!",
+  "description": "A pixel-art infinite runner game where you control a cute rabbit, jumping over incoming trees to achieve a high score. The game speed increases as you progress, offering a challenging and fun experience.",
+  "requestFramePermissions": []
+}
