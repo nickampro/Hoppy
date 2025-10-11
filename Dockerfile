@@ -8,8 +8,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production --silent
+# Install all dependencies (including dev dependencies needed for build)
+RUN npm ci --silent
 
 # Copy source code
 COPY . .
@@ -20,8 +20,8 @@ RUN npm run build
 # Stage 2: Production server with nginx
 FROM nginx:alpine AS production
 
-# Install nodejs and curl for health checks
-RUN apk add --no-cache nodejs npm curl
+# Install curl for health checks
+RUN apk add --no-cache curl
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
@@ -29,10 +29,8 @@ COPY nginx.conf /etc/nginx/nginx.conf
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy PWA assets to nginx html directory
-COPY --from=builder /app/public/manifest.json /usr/share/nginx/html/
-COPY --from=builder /app/public/sw.js /usr/share/nginx/html/
-COPY --from=builder /app/public/icons /usr/share/nginx/html/icons
+# Ensure PWA assets are copied correctly
+RUN ls -la /usr/share/nginx/html/
 
 # Create a startup script
 RUN echo '#!/bin/sh' > /startup.sh && \
@@ -44,7 +42,7 @@ EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/ || exit 1
+    CMD curl -f http://localhost/health || exit 1
 
 # Start nginx
 CMD ["/startup.sh"]
