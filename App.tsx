@@ -70,9 +70,9 @@ const App: React.FC = () => {
         }
     }, [score, highScore]);
     
-    const handleJump = useCallback((e: KeyboardEvent) => {
-        if (e.code === 'ArrowUp' || e.code === 'Space') {
-            e.preventDefault();
+    const handleJump = useCallback((e?: KeyboardEvent) => {
+        if (!e || e.code === 'ArrowUp' || e.code === 'Space') {
+            e?.preventDefault();
             if (gameStatus === GameStatus.Playing && rabbitY.current <= GROUND_HEIGHT) {
                 rabbitVelocityY.current = RABBIT_JUMP_VELOCITY;
                 playSound('sounds/jump.wav');
@@ -82,10 +82,26 @@ const App: React.FC = () => {
         }
     }, [gameStatus, startGame]);
 
+    const handleTouchJump = useCallback((e: TouchEvent) => {
+        e.preventDefault();
+        handleJump();
+    }, [handleJump]);
+
+    const handleClickJump = useCallback((e: MouseEvent) => {
+        e.preventDefault();
+        handleJump();
+    }, [handleJump]);
+
     useEffect(() => {
         window.addEventListener('keydown', handleJump);
-        return () => window.removeEventListener('keydown', handleJump);
-    }, [handleJump]);
+        window.addEventListener('touchstart', handleTouchJump, { passive: false });
+        window.addEventListener('click', handleClickJump);
+        return () => {
+            window.removeEventListener('keydown', handleJump);
+            window.removeEventListener('touchstart', handleTouchJump);
+            window.removeEventListener('click', handleClickJump);
+        };
+    }, [handleJump, handleTouchJump, handleClickJump]);
   
     const gameLoop = useCallback((timestamp: number) => {
         if (gameStatus !== GameStatus.Playing) return;
@@ -162,15 +178,29 @@ const App: React.FC = () => {
     }, [gameStatus, gameLoop]);
   
     return (
-        <div className="flex justify-center items-center h-screen bg-black select-none">
+        <div className="flex justify-center items-center min-h-screen bg-black select-none touch-none p-2">
             <div
-                className="relative bg-[#87CEEB] overflow-hidden border-8 border-gray-700 shadow-2xl"
-                style={{ width: `${GAME_WIDTH}px`, height: `${GAME_HEIGHT}px` }}
+                className="relative bg-[#87CEEB] overflow-hidden border-4 border-gray-700 shadow-2xl max-w-full max-h-full"
+                style={{ 
+                    width: `min(${GAME_WIDTH}px, 100vw - 16px)`, 
+                    height: `min(${GAME_HEIGHT}px, 100vh - 16px)`,
+                    aspectRatio: `${GAME_WIDTH}/${GAME_HEIGHT}`
+                }}
             >
                 <Scoreboard score={score} highScore={highScore} />
-                 <div className="absolute top-16 left-0 right-0 text-center pointer-events-none">
-                    <h1 className="text-4xl text-white" style={{ textShadow: '3px 3px 0 #000' }}>Hoppy Avoidance! 🥕</h1>
+                 <div className="absolute top-12 sm:top-16 left-0 right-0 text-center pointer-events-none">
+                    <h1 className="text-2xl sm:text-4xl text-white" style={{ textShadow: '3px 3px 0 #000' }}>Hoppy Avoidance! 🥕</h1>
                 </div>
+                
+                {/* Mobile touch instruction */}
+                {gameStatus === GameStatus.Playing && (
+                    <div className="absolute bottom-4 left-4 right-4 text-center pointer-events-none sm:hidden">
+                        <p className="text-xs text-white bg-black bg-opacity-50 rounded px-2 py-1 inline-block">
+                            Tap anywhere to jump!
+                        </p>
+                    </div>
+                )}
+                
                 <Rabbit x={RABBIT_INITIAL_X} y={renderedRabbitY} isGameOver={gameStatus === GameStatus.GameOver} />
                 {renderedTrees.map(tree => (
                     <Tree key={tree.id} x={tree.x} height={tree.height} />

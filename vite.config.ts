@@ -18,6 +18,21 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
-      }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: undefined,
+          },
+        },
+      },
+      // Ensure PWA assets are served correctly
+      publicDir: 'public',
+      // Add proper headers for PWA
+      preview: {
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      },
     };
 });
