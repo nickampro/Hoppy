@@ -3,16 +3,23 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   GAME_WIDTH, GAME_HEIGHT, GROUND_HEIGHT, RABBIT_WIDTH, RABBIT_HEIGHT,
   RABBIT_INITIAL_X, RABBIT_JUMP_VELOCITY, GRAVITY, TREE_WIDTH,
-  MIN_TREE_HEIGHT, MAX_TREE_HEIGHT, INITIAL_GAME_SPEED,
-  GAME_SPEED_INCREMENT, HIGH_SCORE_KEY
+  MIN_TREE_HEIGHT, MAX_TREE_HEIGHT, LATE_GAME_MIN_HEIGHT, LATE_GAME_MAX_HEIGHT,
+  INITIAL_GAME_SPEED, GAME_SPEED_INCREMENT, HIGH_SCORE_KEY
 } from './constants';
-import { type Tree as TreeType, GameStatus } from './types';
+import { type Tree as TreeType, GameStatus, LeaderboardEntry } from './types';
 import { Rabbit } from './components/Rabbit';
 import { Tree } from './components/Tree';
 import { Ground } from './components/Ground';
 import { Scoreboard } from './components/Scoreboard';
 import { StartScreen } from './components/StartScreen';
 import { GameOverScreen } from './components/GameOverScreen';
+import { NameEntry } from './components/NameEntry';
+import { 
+  getLeaderboard, 
+  addLeaderboardEntry, 
+  isTopScore, 
+  getLeaderboardPosition 
+} from './utils/leaderboard';
 
 const playSound = (soundFile: string) => {
     try {
@@ -34,6 +41,8 @@ const App: React.FC = () => {
     const [highScore, setHighScore] = useState(getInitialHighScore);
     const [renderedRabbitY, setRenderedRabbitY] = useState(GROUND_HEIGHT);
     const [renderedTrees, setRenderedTrees] = useState<TreeType[]>([]);
+    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const [playerPosition, setPlayerPosition] = useState<number>(0);
 
     const rabbitY = useRef(GROUND_HEIGHT);
     const rabbitVelocityY = useRef(0);
@@ -60,17 +69,14 @@ const App: React.FC = () => {
         setGameStatus(GameStatus.Playing);
     }, [resetGame]);
 
-    const endGame = useCallback(() => {
-        playSound('sounds/game-over.wav');
-        setGameStatus(GameStatus.GameOver);
-        if (score > highScore) {
-            const newHighScore = score;
-            setHighScore(newHighScore);
-            localStorage.setItem(HIGH_SCORE_KEY, newHighScore.toString());
-        }
-    }, [score, highScore]);
+  const endGame = () => {
+    console.log('🎮 endGame called, score:', score);
+    console.log('📊 Checking if top score...');
+    const isTop = isTopScore(score);
+    console.log('🏆 isTopScore result:', isTop);
     
-    const handleJump = useCallback((e?: KeyboardEvent) => {
+    setGameStatus(isTop ? GameStatus.NameEntry : GameStatus.GameOver);
+  };    const handleJump = useCallback((e?: KeyboardEvent) => {
         if (!e || e.code === 'ArrowUp' || e.code === 'Space') {
             e?.preventDefault();
             if (gameStatus === GameStatus.Playing && rabbitY.current <= GROUND_HEIGHT) {
@@ -79,6 +85,7 @@ const App: React.FC = () => {
             } else if (gameStatus === GameStatus.Start || gameStatus === GameStatus.GameOver) {
                 startGame();
             }
+            // Note: NameEntry state is handled by its own component, no jump action needed
         }
     }, [gameStatus, startGame]);
 
@@ -87,10 +94,28 @@ const App: React.FC = () => {
         handleJump();
     }, [handleJump]);
 
+    const handleNameSubmit = useCallback((name: string) => {
+        console.log('🎯 handleNameSubmit called with:', { name, score });
+        const updatedLeaderboard = addLeaderboardEntry(name, score);
+        console.log('📊 Leaderboard after save:', updatedLeaderboard);
+        setLeaderboard(updatedLeaderboard);
+        setGameStatus(GameStatus.GameOver);
+        console.log('✅ Game status set to GameOver');
+    }, [score]);
+
+    const handleNameSkip = useCallback(() => {
+        setGameStatus(GameStatus.GameOver);
+    }, []);
+
     const handleClickJump = useCallback((e: MouseEvent) => {
         e.preventDefault();
         handleJump();
     }, [handleJump]);
+
+    // Load leaderboard on component mount
+    useEffect(() => {
+        setLeaderboard(getLeaderboard());
+    }, []);
 
     useEffect(() => {
         window.addEventListener('keydown', handleJump);
@@ -139,7 +164,12 @@ const App: React.FC = () => {
         if (timestamp - lastTreeTime.current > 1000) { 
             const lastTree = trees.current[trees.current.length - 1];
             if (!lastTree || lastTree.x < GAME_WIDTH - (250 + Math.random() * 250) ) {
-                const newHeight = MIN_TREE_HEIGHT + Math.random() * (MAX_TREE_HEIGHT - MIN_TREE_HEIGHT);
+                // Progressive difficulty: start with small trees, gradually increase
+                const difficultyProgress = Math.min(score / 20, 1); // Reaches full difficulty at score 20
+                const currentMinHeight = MIN_TREE_HEIGHT + (LATE_GAME_MIN_HEIGHT - MIN_TREE_HEIGHT) * difficultyProgress;
+                const currentMaxHeight = MAX_TREE_HEIGHT + (LATE_GAME_MAX_HEIGHT - MAX_TREE_HEIGHT) * difficultyProgress;
+                
+                const newHeight = currentMinHeight + Math.random() * (currentMaxHeight - currentMinHeight);
                 trees.current.push({ id: Date.now(), x: GAME_WIDTH, height: newHeight, passed: false });
                 lastTreeTime.current = timestamp;
             }
@@ -188,9 +218,6 @@ const App: React.FC = () => {
                 }}
             >
                 <Scoreboard score={score} highScore={highScore} />
-                 <div className="absolute top-12 sm:top-16 left-0 right-0 text-center pointer-events-none">
-                    <h1 className="text-2xl sm:text-4xl text-white" style={{ textShadow: '3px 3px 0 #000' }}>Hoppy Avoidance! 🥕</h1>
-                </div>
                 
                 {/* Mobile touch instruction */}
                 {gameStatus === GameStatus.Playing && (
@@ -208,6 +235,14 @@ const App: React.FC = () => {
                 <Ground />
 
                 {gameStatus === GameStatus.Start && <StartScreen onStart={startGame} />}
+                {gameStatus === GameStatus.NameEntry && (
+                    <NameEntry 
+                        score={score}
+                        position={playerPosition}
+                        onSubmit={handleNameSubmit}
+                        onSkip={handleNameSkip}
+                    />
+                )}
                 {gameStatus === GameStatus.GameOver && <GameOverScreen score={score} highScore={highScore} onRestart={startGame} />}
             </div>
         </div>

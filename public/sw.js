@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hoppy-game-v1';
+const CACHE_NAME = 'hoppy-game-v2-debug';
 const urlsToCache = [
   '/',
   '/index.html',
