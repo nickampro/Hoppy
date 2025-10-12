@@ -1,9 +1,9 @@
 {
-  "version": "1.2.2",
-  "buildDate": "2025-10-12T23:20:00Z",
+  "version": "1.2.3",
+  "buildDate": "2025-10-12T23:40:00Z",
   "features": [
-    "Clean gear button styling",
-    "Updated leaderboard messaging", 
-    "Improved icon system"
+    "MySQL leaderboard integration",
+    "Fixed collision detection",
+    "Eliminated API errors"
   ]
 }
