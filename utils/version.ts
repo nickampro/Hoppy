@@ -1,5 +1,5 @@
 // Version management for PWA cache busting
-export const APP_VERSION = '1.1.0'; // Update this with each release
+export const APP_VERSION = '1.2.0'; // Update this with each release
 
 export const checkForUpdates = async (): Promise<{
     updateAvailable: boolean;
