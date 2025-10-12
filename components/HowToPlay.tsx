@@ -127,20 +127,10 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ onClose }) => {
             <div>
               <p className="font-bold text-sm">Leaderboard:</p>
               <p className="text-xs text-gray-300">
-                Get a top 5 score to enter your name!
+                Get a top 3 worldwide score to enter your name!
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Tips */}
-        <div className="bg-yellow-600 bg-opacity-20 rounded p-3 mb-4">
-          <p className="text-xs font-bold text-yellow-400 mb-1">💡 Pro Tips:</p>
-          <ul className="text-xs text-yellow-200 space-y-1">
-            <li>• Time your jumps carefully</li>
-            <li>• The game gets faster as you progress</li>
-            <li>• Practice makes perfect!</li>
-          </ul>
         </div>
 
         {/* Close Button */}

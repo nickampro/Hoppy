@@ -410,7 +410,6 @@ const App: React.FC = () => {
                     className="absolute top-2 right-2 text-white hover:scale-105 transition-all z-40 w-12 h-12 flex items-center justify-center text-2xl"
                     title={gameStatus === GameStatus.Playing ? (gameIsPaused ? "Resume Game" : "Pause Game") : "Settings"}
                     style={{ 
-                        filter: 'drop-shadow(1px 1px 2px rgba(0,0,0,0.3))',
                         backgroundColor: 'rgba(0,0,0,0.2)',
                         backdropFilter: 'blur(4px)',
                         borderRadius: '8px'
