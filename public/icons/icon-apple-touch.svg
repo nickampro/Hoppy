@@ -1,4 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <!-- Background (Apple icons are typically square with no rounded corners) -->
+  <rect width="180" height="180" fill="#87CEEB"/>
+  
+  <!-- Rabbit body -->
+  <ellipse cx="90" cy="122" rx="32" ry="23" fill="white" stroke="#000" stroke-width="2.5"/>
+  
+  <!-- Rabbit head -->
+  <circle cx="90" cy="80" r="23" fill="white" stroke="#000" stroke-width="2.5"/>
+  
+  <!-- Left ear -->
+  <ellipse cx="80" cy="62" rx="7" ry="18" fill="white" stroke="#000" stroke-width="2.5" transform="rotate(-20 80 62)"/>
+  <ellipse cx="80" cy="62" rx="3.5" ry="11" fill="#FFB6C1" transform="rotate(-20 80 62)"/>
+  
+  <!-- Right ear -->
+  <ellipse cx="100" cy="62" rx="7" ry="18" fill="white" stroke="#000" stroke-width="2.5" transform="rotate(20 100 62)"/>
+  <ellipse cx="100" cy="62" rx="3.5" ry="11" fill="#FFB6C1" transform="rotate(20 100 62)"/>
+  
+  <!-- Eyes -->
+  <circle cx="83" cy="76" r="3.5" fill="#000"/>
+  <circle cx="97" cy="76" r="3.5" fill="#000"/>
+  
+  <!-- Nose -->
+  <ellipse cx="90" cy="85" rx="2.5" ry="1.8" fill="#FFB6C1"/>
+  
+  <!-- Feet -->
+  <ellipse cx="80" cy="140" rx="7" ry="5" fill="white" stroke="#000" stroke-width="2"/>
+  <ellipse cx="100" cy="140" rx="7" ry="5" fill="white" stroke="#000" stroke-width="2"/>
+  
+  <!-- Carrot -->
+  <polygon points="130,95 148,103 145,120 127,112" fill="#FF6600" stroke="#000" stroke-width="2"/>
+  <polygon points="130,95 134,91 138,95" fill="#228B22"/>
+</svg> xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
   <rect width="180" height="180" fill="#3b82f6" rx="24"/>
   <text x="90" y="115" font-family="Arial, sans-serif" font-size="90" text-anchor="middle" fill="white">🐰</text>
 </svg>

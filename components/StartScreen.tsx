@@ -33,16 +33,18 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
   }
 
   return (
-    <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center text-white text-center z-20 p-4 overflow-y-auto">
-      <div className="w-full max-w-md space-y-4">
+    <div 
+      className="absolute inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center text-white text-center z-20 p-4 overflow-y-auto"
+      onClick={(e) => e.stopPropagation()} // Prevent click bubbling to parent
+    >
+      <div className="w-full max-w-lg lg:max-w-xl space-y-6"
+           onClick={(e) => e.stopPropagation()} // Extra protection for the content area
+      >
         {/* Title */}
-        <div className="mb-4">
-          <h1 className="text-2xl sm:text-4xl mb-2" style={{ textShadow: '4px 4px 0 #000' }}>
-            Hoppy Avoidance! 🥕
+        <div className="mb-6">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl mb-4 leading-tight" style={{ textShadow: '4px 4px 0 #000' }}>
+            Hoppy! 🥕
           </h1>
-          <p className="text-sm sm:text-lg px-4 text-gray-300">
-            Jump, dodge, survive!
-          </p>
         </div>
 
         {/* Leaderboard */}
@@ -69,7 +71,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
         <div className="text-xs sm:text-sm text-gray-400 mt-4">
           <p>
             <span className="hidden sm:inline">Press SPACE or UP ARROW</span>
-            <span className="sm:hidden">Tap anywhere</span>
+            <span className="sm:hidden">Press SPACE or UP ARROW</span>
             {" "}to jump
           </p>
         </div>

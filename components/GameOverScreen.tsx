@@ -19,8 +19,13 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, highScore
   }, []);
 
   return (
-    <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white text-center z-20 p-4 overflow-y-auto">
-      <div className="w-full max-w-md space-y-4">
+    <div 
+      className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white text-center z-20 p-4 overflow-y-auto"
+      onClick={(e) => e.stopPropagation()} // Prevent click bubbling to parent
+    >
+      <div className="w-full max-w-md space-y-4"
+           onClick={(e) => e.stopPropagation()} // Extra protection for the content area
+      >
         {/* Game Over Header */}
         <div>
           <h2 className="text-3xl sm:text-5xl mb-4" style={{ textShadow: '3px 3px 0 #000' }}>
@@ -63,7 +68,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, highScore
           
           <p className="text-sm text-gray-300">
             <span className="hidden sm:inline">Press UP ARROW or SPACE to restart</span>
-            <span className="sm:hidden">Tap anywhere to restart</span>
+            <span className="sm:hidden">Press UP ARROW or SPACE to restart</span>
           </p>
         </div>
       </div>

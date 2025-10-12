@@ -1,5 +1,5 @@
 // Version management for PWA cache busting
-export const APP_VERSION = '1.2.0'; // Update this with each release
+export const APP_VERSION = '1.2.1'; // Update this with each release
 
 export const checkForUpdates = async (): Promise<{
     updateAvailable: boolean;
@@ -11,11 +11,14 @@ export const checkForUpdates = async (): Promise<{
         const response = await fetch('/version.json?t=' + Date.now());
         const { version: latestVersion } = await response.json();
         
-        const currentVersion = localStorage.getItem('app-version') || '1.0.0';
-        const updateAvailable = latestVersion !== currentVersion;
+        const currentVersion = APP_VERSION; // Use actual app version, not localStorage
+        const updateAvailable = latestVersion !== currentVersion && 
+                               isNewerVersion(latestVersion, currentVersion);
         
         if (updateAvailable) {
             console.log(`🔄 Update available: ${currentVersion} → ${latestVersion}`);
+        } else {
+            console.log(`✅ Already up-to-date: ${currentVersion}`);
         }
         
         return {
@@ -27,41 +30,66 @@ export const checkForUpdates = async (): Promise<{
         console.warn('Could not check for updates:', error);
         return {
             updateAvailable: false,
-            currentVersion: localStorage.getItem('app-version') || '1.0.0'
+            currentVersion: APP_VERSION
         };
     }
 };
 
+// Helper function to compare semantic versions
+const isNewerVersion = (newVersion: string, currentVersion: string): boolean => {
+    const parseVersion = (version: string) => {
+        return version.split('.').map(num => parseInt(num, 10));
+    };
+    
+    const newParts = parseVersion(newVersion);
+    const currentParts = parseVersion(currentVersion);
+    
+    for (let i = 0; i < Math.max(newParts.length, currentParts.length); i++) {
+        const newPart = newParts[i] || 0;
+        const currentPart = currentParts[i] || 0;
+        
+        if (newPart > currentPart) return true;
+        if (newPart < currentPart) return false;
+    }
+    
+    return false; // Versions are equal
+};
+
 export const forceUpdate = async (): Promise<void> => {
     try {
-        // Clear all caches
+        console.log('🔄 Starting force update...');
+        
+        // Clear all service worker caches
         if ('serviceWorker' in navigator) {
-            const registration = await navigator.serviceWorker.getRegistration();
-            if (registration) {
-                console.log('🧹 Clearing service worker cache...');
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+                console.log('🧹 Unregistering service worker...');
                 await registration.unregister();
             }
         }
         
-        // Clear browser caches
+        // Clear all browser caches aggressively
         if ('caches' in window) {
             const cacheNames = await caches.keys();
+            console.log(`🧹 Clearing ${cacheNames.length} caches...`);
             await Promise.all(
-                cacheNames.map(cacheName => caches.delete(cacheName))
+                cacheNames.map(async (cacheName) => {
+                    console.log(`🗑️ Deleting cache: ${cacheName}`);
+                    return caches.delete(cacheName);
+                })
             );
-            console.log('🧹 Cleared all caches');
         }
         
-        // Update stored version
-        localStorage.setItem('app-version', APP_VERSION);
+        // Clear localStorage and sessionStorage
+        console.log('🧹 Clearing local storage...');
+        localStorage.clear();
+        sessionStorage.clear();
         
-        // Force reload
-        window.location.reload();
+        // Force clear any remaining cache by adding timestamp
+        console.log('🔄 Force reloading with cache bust...');
         
     } catch (error) {
         console.error('Error during force update:', error);
-        // Fallback: just reload
-        window.location.reload();
     }
 };
 

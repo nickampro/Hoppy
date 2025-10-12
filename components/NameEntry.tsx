@@ -64,11 +64,16 @@ export const NameEntry: React.FC<NameEntryProps> = ({ score, position, onSubmit,
   };
 
   return (
-    <div className="absolute inset-0 bg-black bg-opacity-80 flex flex-col justify-center items-center text-white text-center z-30 p-4">
-      <div className="bg-gradient-to-b from-yellow-400 to-yellow-600 text-black p-6 rounded-lg border-4 border-yellow-300 shadow-2xl max-w-sm w-full">
+    <div 
+      className="absolute inset-0 bg-black bg-opacity-80 flex flex-col justify-center items-center text-white text-center z-30 p-4"
+      onClick={(e) => e.stopPropagation()} // Prevent click bubbling to parent
+    >
+      <div className="bg-gradient-to-b from-yellow-400 to-yellow-600 text-black p-6 rounded-lg border-4 border-yellow-300 shadow-2xl max-w-sm w-full"
+           onClick={(e) => e.stopPropagation()} // Extra protection for the content area
+      >
         {/* Celebration Header */}
         <div className="mb-4">
-          <h2 className="text-2xl sm:text-3xl mb-2" style={{ textShadow: '2px 2px 0 #000' }}>
+          <h2 className="text-xl sm:text-2xl mb-2 leading-tight" style={{ textShadow: '2px 2px 0 #000' }}>
             🎉 NEW HIGH SCORE! 🎉
           </h2>
           <p className="text-lg font-bold">

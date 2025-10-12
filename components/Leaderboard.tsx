@@ -45,7 +45,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   return (
     <div className="bg-gray-800 bg-opacity-90 rounded-lg p-4 border-2 border-gray-600">
       <h3 className="text-lg sm:text-xl font-bold text-center mb-4 text-yellow-400">
-        🏆 TOP SCORES 🏆
+        🏆 TOP 3 SCORES 🏆
       </h3>
       
       <div className="space-y-2">
@@ -99,10 +99,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
         })}
       </div>
 
-      {/* Fill empty slots if less than 5 entries */}
-      {entries.length < 5 && (
+      {/* Fill empty slots if less than 3 entries */}
+      {entries.length < 3 && (
         <div className="mt-2 space-y-2">
-          {Array.from({ length: 5 - entries.length }, (_, index) => {
+          {Array.from({ length: 3 - entries.length }, (_, index) => {
             const position = entries.length + index + 1;
             return (
               <div

@@ -1,4 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#3b82f6" rx="64"/>
-  <text x="256" y="320" font-family="Arial, sans-serif" font-size="280" text-anchor="middle" fill="white">🐰</text>
+  <!-- Background -->
+  <rect width="512" height="512" fill="#87CEEB" rx="64"/>
+  
+  <!-- Rabbit body -->
+  <ellipse cx="256" cy="350" rx="90" ry="65" fill="white" stroke="#000" stroke-width="8"/>
+  
+  <!-- Rabbit head -->
+  <circle cx="256" cy="220" r="65" fill="white" stroke="#000" stroke-width="8"/>
+  
+  <!-- Left ear -->
+  <ellipse cx="220" cy="170" rx="20" ry="50" fill="white" stroke="#000" stroke-width="8" transform="rotate(-20 220 170)"/>
+  <ellipse cx="220" cy="170" rx="10" ry="30" fill="#FFB6C1" transform="rotate(-20 220 170)"/>
+  
+  <!-- Right ear -->
+  <ellipse cx="292" cy="170" rx="20" ry="50" fill="white" stroke="#000" stroke-width="8" transform="rotate(20 292 170)"/>
+  <ellipse cx="292" cy="170" rx="10" ry="30" fill="#FFB6C1" transform="rotate(20 292 170)"/>
+  
+  <!-- Eyes -->
+  <circle cx="235" cy="205" r="10" fill="#000"/>
+  <circle cx="277" cy="205" r="10" fill="#000"/>
+  
+  <!-- Nose -->
+  <ellipse cx="256" cy="230" rx="8" ry="5" fill="#FFB6C1"/>
+  
+  <!-- Feet -->
+  <ellipse cx="225" cy="400" rx="20" ry="15" fill="white" stroke="#000" stroke-width="5"/>
+  <ellipse cx="287" cy="400" rx="20" ry="15" fill="white" stroke="#000" stroke-width="5"/>
+  
+  <!-- Carrot -->
+  <polygon points="370,260 420,290 410,350 360,320" fill="#FF6600" stroke="#000" stroke-width="5"/>
+  <polygon points="370,260 385,245 400,260" fill="#228B22"/>
 </svg>

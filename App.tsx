@@ -40,9 +40,13 @@ const App: React.FC = () => {
     const [playerPosition, setPlayerPosition] = useState<number>(0);
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
+    const [updateDismissed, setUpdateDismissed] = useState(false); // Track if user dismissed the notification
     const [settings, setSettings] = useState<GameSettings>(loadSettings);
     const [showSettings, setShowSettings] = useState(false);
     const [gameIsPaused, setGameIsPaused] = useState(false);
+    const [countdown, setCountdown] = useState<number | null>(null);
+    const [isCountingDown, setIsCountingDown] = useState(false);
+    const [gameOverTime, setGameOverTime] = useState<number | null>(null); // Track when game ended
 
     const rabbitY = useRef(GROUND_HEIGHT);
     const rabbitVelocityY = useRef(0);
@@ -59,6 +63,8 @@ const App: React.FC = () => {
         gameSpeed.current = INITIAL_GAME_SPEED;
         lastTreeTime.current = 0;
         hasDoubleJumped.current = false; // Reset double jump
+        setCountdown(null);
+        setIsCountingDown(false);
 
         setScore(0);
         setRenderedRabbitY(GROUND_HEIGHT);
@@ -67,16 +73,57 @@ const App: React.FC = () => {
 
     const startGame = useCallback(() => {
         resetGame();
-        setGameStatus(GameStatus.Playing);
+        setGameOverTime(null); // Reset the game over time
+        setIsCountingDown(true);
+        setCountdown(3);
+        
+        // Countdown sequence
+        const countdownInterval = setInterval(() => {
+            setCountdown(prev => {
+                if (prev === null || prev <= 1) {
+                    clearInterval(countdownInterval);
+                    setIsCountingDown(false);
+                    setCountdown(null);
+                    setGameStatus(GameStatus.Playing);
+                    return null;
+                }
+                return prev - 1;
+            });
+        }, 1000);
     }, [resetGame]);
 
   const endGame = () => {
     console.log('🎮 endGame called, score:', score);
-    console.log('📊 Checking if top score...');
-    const isTop = isTopScore(score);
-    console.log('🏆 isTopScore result:', isTop);
+    console.log('🎮 Current difficulty:', settings.difficulty);
     
-    setGameStatus(isTop ? GameStatus.NameEntry : GameStatus.GameOver);
+    // Set the time when game ended to prevent immediate restarts
+    setGameOverTime(Date.now());
+    
+    // Update high score if needed
+    if (score > highScore) {
+      setHighScore(score);
+      localStorage.setItem(HIGH_SCORE_KEY, score.toString());
+      console.log('🏆 New high score:', score);
+    }
+    
+    // Only allow leaderboard submission for Normal difficulty
+    if (settings.difficulty === 'normal') {
+      console.log('📊 Checking if top score...');
+      const isTop = isTopScore(score);
+      console.log('🏆 isTopScore result:', isTop);
+      
+      if (isTop) {
+        // Calculate the position this score would have
+        const position = getLeaderboardPosition(score);
+        setPlayerPosition(position);
+        setGameStatus(GameStatus.NameEntry);
+      } else {
+        setGameStatus(GameStatus.GameOver);
+      }
+    } else {
+      console.log('🟢 Easy mode - skipping leaderboard, going to Game Over');
+      setGameStatus(GameStatus.GameOver);
+    }
   };    const handleJump = useCallback((e?: KeyboardEvent) => {
         if (!e || e.code === 'ArrowUp' || e.code === 'Space') {
             e?.preventDefault();
@@ -96,14 +143,35 @@ const App: React.FC = () => {
                         hasDoubleJumped.current = true;
                     }
                 }
-            } else if (gameStatus === GameStatus.Start || gameStatus === GameStatus.GameOver) {
+            } else if ((gameStatus === GameStatus.Start || gameStatus === GameStatus.GameOver) && 
+                       (e?.code === 'ArrowUp' || e?.code === 'Space')) {
+                // Add delay after death to prevent accidental restarts
+                if (gameStatus === GameStatus.GameOver && gameOverTime) {
+                    const timeSinceDeath = Date.now() - gameOverTime;
+                    if (timeSinceDeath < 1000) { // 1 second delay
+                        return; // Ignore restart attempts within 1 second of death
+                    }
+                }
+                // Only restart on specific keys when in Start or GameOver state
                 startGame();
             }
             // Note: NameEntry state is handled by its own component, no jump action needed
         }
-    }, [gameStatus, startGame, settings]);
+    }, [gameStatus, startGame, settings, gameOverTime]);
 
     const handleTouchJump = useCallback((e: TouchEvent) => {
+        // Don't handle touches on buttons, inputs, or other interactive elements
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'BUTTON' || 
+            target.tagName === 'INPUT' || 
+            target.tagName === 'A' ||
+            target.closest('button') ||
+            target.closest('input') ||
+            target.closest('a') ||
+            target.closest('[role="button"]')) {
+            return; // Let the button handle its own touch
+        }
+        
         e.preventDefault();
         handleJump();
     }, [handleJump]);
@@ -122,6 +190,18 @@ const App: React.FC = () => {
     }, []);
 
     const handleClickJump = useCallback((e: MouseEvent) => {
+        // Don't handle clicks on buttons, inputs, or other interactive elements
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'BUTTON' || 
+            target.tagName === 'INPUT' || 
+            target.tagName === 'A' ||
+            target.closest('button') ||
+            target.closest('input') ||
+            target.closest('a') ||
+            target.closest('[role="button"]')) {
+            return; // Let the button handle its own click
+        }
+        
         e.preventDefault();
         handleJump();
     }, [handleJump]);
@@ -152,9 +232,14 @@ const App: React.FC = () => {
     useEffect(() => {
         const checkUpdates = async () => {
             const updateInfo = await checkForUpdates();
-            if (updateInfo.updateAvailable) {
+            if (updateInfo.updateAvailable && !updateDismissed) {
                 setUpdateAvailable(true);
                 setShowUpdatePrompt(true);
+                
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    setShowUpdatePrompt(false);
+                }, 5000);
             }
         };
         
@@ -162,21 +247,36 @@ const App: React.FC = () => {
         // Check every 5 minutes
         const interval = setInterval(checkUpdates, 5 * 60 * 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [updateDismissed]);
 
     useEffect(() => {
-        window.addEventListener('keydown', handleJump);
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Force refresh shortcut: Ctrl+Shift+R or Cmd+Shift+R
+            if (e.shiftKey && (e.ctrlKey || e.metaKey) && e.key === 'R') {
+                e.preventDefault();
+                console.log('🔄 Force refresh triggered by keyboard shortcut');
+                forceUpdate().then(() => {
+                    window.location.href = window.location.href + '?t=' + Date.now();
+                });
+                return;
+            }
+            
+            // Regular game controls
+            handleJump(e);
+        };
+        
+        window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('touchstart', handleTouchJump, { passive: false });
         window.addEventListener('click', handleClickJump);
         return () => {
-            window.removeEventListener('keydown', handleJump);
+            window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('touchstart', handleTouchJump);
             window.removeEventListener('click', handleClickJump);
         };
     }, [handleJump, handleTouchJump, handleClickJump]);
   
     const gameLoop = useCallback((timestamp: number) => {
-        if (gameStatus !== GameStatus.Playing || gameIsPaused) return;
+        if (gameStatus !== GameStatus.Playing || gameIsPaused || isCountingDown) return;
 
         // Rabbit physics
         rabbitVelocityY.current += GRAVITY;
@@ -225,6 +325,7 @@ const App: React.FC = () => {
         
         const rabbitRect = { x: RABBIT_INITIAL_X, y: rabbitY.current, width: RABBIT_WIDTH - 10, height: RABBIT_HEIGHT - 10 };
         for (const tree of trees.current) {
+            // Tree is positioned from the ground up, so its collision box starts at GROUND_HEIGHT and goes up by tree.height
             const treeRect = { x: tree.x, y: GROUND_HEIGHT, width: TREE_WIDTH, height: tree.height };
             if (
                 rabbitRect.x < treeRect.x + treeRect.width &&
@@ -241,7 +342,7 @@ const App: React.FC = () => {
         setRenderedTrees([...trees.current]);
 
         gameLoopId.current = requestAnimationFrame(gameLoop);
-    }, [score, endGame, gameStatus, gameIsPaused]);
+    }, [score, endGame, gameStatus, gameIsPaused, isCountingDown]);
 
     useEffect(() => {
         if (gameStatus === GameStatus.Playing) {
@@ -256,13 +357,25 @@ const App: React.FC = () => {
     }, [gameStatus, gameLoop]);
   
     return (
-        <div className="flex justify-center items-center min-h-screen bg-black select-none touch-none p-2">
+        <div 
+            className="bg-black select-none touch-none"
+            style={{ 
+                width: '100vw', 
+                height: '100vh',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                margin: 0,
+                padding: 0
+            }}
+        >
             <div
-                className="relative bg-[#87CEEB] overflow-hidden border-4 border-gray-700 shadow-2xl max-w-full max-h-full"
+                className="relative bg-[#87CEEB] overflow-hidden"
                 style={{ 
-                    width: `min(${GAME_WIDTH}px, 100vw - 16px)`, 
-                    height: `min(${GAME_HEIGHT}px, 100vh - 16px)`,
-                    aspectRatio: `${GAME_WIDTH}/${GAME_HEIGHT}`
+                    width: '100vw',
+                    height: '100vh',
+                    aspectRatio: `${GAME_WIDTH}/${GAME_HEIGHT}`,
+                    objectFit: 'contain'
                 }}
             >
                 {/* Update notification */}
@@ -273,13 +386,16 @@ const App: React.FC = () => {
                             <div className="flex gap-2">
                                 <button 
                                     onClick={() => forceUpdate()}
-                                    className="px-3 py-1 bg-green-500 text-white text-xs rounded font-bold hover:bg-green-600"
+                                    className="px-3 py-1 bg-green-500 text-white text-xs rounded font-bold hover:bg-green-600 active:bg-green-700 touch-manipulation"
                                 >
                                     Update Now
                                 </button>
                                 <button 
-                                    onClick={() => setShowUpdatePrompt(false)}
-                                    className="px-3 py-1 bg-gray-500 text-white text-xs rounded font-bold hover:bg-gray-600"
+                                    onClick={() => {
+                                        setShowUpdatePrompt(false);
+                                        setUpdateDismissed(true); // Mark as dismissed to prevent showing again
+                                    }}
+                                    className="px-3 py-1 bg-gray-500 text-white text-xs rounded font-bold hover:bg-gray-600 active:bg-gray-700 touch-manipulation"
                                 >
                                     Later
                                 </button>
@@ -291,8 +407,14 @@ const App: React.FC = () => {
                 {/* Settings Button - Always visible, larger, serves as pause during gameplay */}
                 <button
                     onClick={handleSettingsToggle}
-                    className="absolute top-4 right-4 bg-gray-700 bg-opacity-90 text-white rounded-full hover:bg-opacity-100 transition-all z-40 w-12 h-12 flex items-center justify-center text-xl"
+                    className="absolute top-2 right-2 text-white hover:scale-105 transition-all z-40 w-12 h-12 flex items-center justify-center text-2xl"
                     title={gameStatus === GameStatus.Playing ? (gameIsPaused ? "Resume Game" : "Pause Game") : "Settings"}
+                    style={{ 
+                        filter: 'drop-shadow(1px 1px 2px rgba(0,0,0,0.3))',
+                        backgroundColor: 'rgba(0,0,0,0.2)',
+                        backdropFilter: 'blur(4px)',
+                        borderRadius: '8px'
+                    }}
                 >
                     {gameStatus === GameStatus.Playing && gameIsPaused ? '▶️' : '⚙️'}
                 </button>
@@ -303,7 +425,7 @@ const App: React.FC = () => {
                 {gameStatus === GameStatus.Playing && !gameIsPaused && (
                     <div className="absolute bottom-4 left-4 right-4 text-center pointer-events-none sm:hidden">
                         <p className="text-xs text-white bg-black bg-opacity-50 rounded px-2 py-1 inline-block">
-                            Tap anywhere to jump!
+                            Tap outside buttons to jump!
                         </p>
                     </div>
                 )}
@@ -315,6 +437,21 @@ const App: React.FC = () => {
                             <div className="text-6xl mb-4">⏸️</div>
                             <div className="text-2xl font-bold mb-2">PAUSED</div>
                             <div className="text-sm">Click settings to resume or change options</div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Countdown overlay */}
+                {isCountingDown && countdown !== null && (
+                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center z-30">
+                        <div className="text-white text-center">
+                            <div className="text-9xl mb-4 animate-pulse font-bold">
+                                {countdown}
+                            </div>
+                            <div className="text-2xl font-bold mb-2">GET READY!</div>
+                            <div className="text-sm">
+                                {settings.difficulty === 'easy' ? 'Double jump enabled' : 'Single jump only'}
+                            </div>
                         </div>
                     </div>
                 )}

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- Background -->
+  <rect width="16" height="16" fill="#87CEEB"/>
+  
+  <!-- Rabbit (simplified for 16px) -->
+  <ellipse cx="8" cy="11" rx="3" ry="2" fill="white" stroke="#000" stroke-width="0.5"/>
+  <circle cx="8" cy="7" r="2.5" fill="white" stroke="#000" stroke-width="0.5"/>
+  
+  <!-- Ears -->
+  <ellipse cx="6.5" cy="5.5" rx="0.8" ry="2" fill="white" stroke="#000" stroke-width="0.3"/>
+  <ellipse cx="9.5" cy="5.5" rx="0.8" ry="2" fill="white" stroke="#000" stroke-width="0.3"/>
+  
+  <!-- Eyes -->
+  <circle cx="7" cy="6.5" r="0.5" fill="#000"/>
+  <circle cx="9" cy="6.5" r="0.5" fill="#000"/>
+  
+  <!-- Carrot -->
+  <polygon points="12,8 14,9 13.5,11 11.5,10" fill="#FF6600"/>
+</svg>

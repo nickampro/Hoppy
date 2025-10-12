@@ -1,7 +1,7 @@
 import { LeaderboardEntry } from '../types';
 
 const LEADERBOARD_KEY = 'hoppy-leaderboard';
-const MAX_ENTRIES = 5;
+const MAX_ENTRIES = 3;
 
 export const getLeaderboard = (): LeaderboardEntry[] => {
   try {
