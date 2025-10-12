@@ -15,7 +15,12 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, highScore
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   useEffect(() => {
-    setLeaderboard(getLeaderboard());
+    const loadLeaderboard = async () => {
+      const leaderboard = await getLeaderboard();
+      setLeaderboard(leaderboard);
+    };
+    
+    loadLeaderboard();
   }, []);
 
   return (

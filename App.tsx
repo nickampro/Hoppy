@@ -109,17 +109,23 @@ const App: React.FC = () => {
     // Only allow leaderboard submission for Normal difficulty
     if (settings.difficulty === 'normal') {
       console.log('📊 Checking if top score...');
-      const isTop = isTopScore(score);
-      console.log('🏆 isTopScore result:', isTop);
-      
-      if (isTop) {
-        // Calculate the position this score would have
-        const position = getLeaderboardPosition(score);
-        setPlayerPosition(position);
-        setGameStatus(GameStatus.NameEntry);
-      } else {
+      // Handle async leaderboard check without blocking game state
+      isTopScore(score).then((isTop) => {
+        console.log('🏆 isTopScore result:', isTop);
+        
+        if (isTop) {
+          // Calculate the position this score would have
+          getLeaderboardPosition(score).then((position) => {
+            setPlayerPosition(position);
+            setGameStatus(GameStatus.NameEntry);
+          });
+        } else {
+          setGameStatus(GameStatus.GameOver);
+        }
+      }).catch((error) => {
+        console.error('Error checking leaderboard:', error);
         setGameStatus(GameStatus.GameOver);
-      }
+      });
     } else {
       console.log('🟢 Easy mode - skipping leaderboard, going to Game Over');
       setGameStatus(GameStatus.GameOver);
@@ -176,9 +182,9 @@ const App: React.FC = () => {
         handleJump();
     }, [handleJump]);
 
-    const handleNameSubmit = useCallback((name: string) => {
+    const handleNameSubmit = useCallback(async (name: string) => {
         console.log('🎯 handleNameSubmit called with:', { name, score });
-        const updatedLeaderboard = addLeaderboardEntry(name, score);
+        const updatedLeaderboard = await addLeaderboardEntry(name, score);
         console.log('📊 Leaderboard after save:', updatedLeaderboard);
         setLeaderboard(updatedLeaderboard);
         setGameStatus(GameStatus.GameOver);
@@ -224,7 +230,12 @@ const App: React.FC = () => {
         setGameIsPaused(false);
     }, []);
     useEffect(() => {
-        setLeaderboard(getLeaderboard());
+        const loadLeaderboard = async () => {
+            const leaderboard = await getLeaderboard();
+            setLeaderboard(leaderboard);
+        };
+        
+        loadLeaderboard();
         setCurrentVersion(); // Set current app version
     }, []);
 
@@ -318,15 +329,20 @@ const App: React.FC = () => {
                 const currentMaxHeight = MAX_TREE_HEIGHT + (LATE_GAME_MAX_HEIGHT - MAX_TREE_HEIGHT) * difficultyProgress;
                 
                 const newHeight = currentMinHeight + Math.random() * (currentMaxHeight - currentMinHeight);
-                trees.current.push({ id: Date.now(), x: GAME_WIDTH, height: newHeight, passed: false });
+                // Spawn trees well off-screen to ensure smooth entry on all screen sizes
+                trees.current.push({ id: Date.now(), x: GAME_WIDTH + TREE_WIDTH + 50, height: newHeight, passed: false });
                 lastTreeTime.current = timestamp;
             }
         }
         
         const rabbitRect = { x: RABBIT_INITIAL_X, y: rabbitY.current, width: RABBIT_WIDTH - 10, height: RABBIT_HEIGHT - 10 };
         for (const tree of trees.current) {
-            // Tree is positioned from the ground up, so its collision box starts at GROUND_HEIGHT and goes up by tree.height
+            // Both rabbit and tree use bottom-up coordinates (bottom: Npx in CSS)
+            // Tree starts at GROUND_HEIGHT and extends upward by tree.height
+            // Rabbit is at rabbitY.current and extends upward by RABBIT_HEIGHT
             const treeRect = { x: tree.x, y: GROUND_HEIGHT, width: TREE_WIDTH, height: tree.height };
+            
+            // Check collision: both rectangles use same coordinate system (bottom-up)
             if (
                 rabbitRect.x < treeRect.x + treeRect.width &&
                 rabbitRect.x + rabbitRect.width > treeRect.x &&

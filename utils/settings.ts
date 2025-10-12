@@ -24,25 +24,26 @@ export const saveSettings = (settings: GameSettings): void => {
   }
 };
 
-// Get latest version from GitHub releases API
+// Get latest version from local version.json instead of GitHub
 export const getLatestVersion = async (): Promise<{
   version: string;
   downloadUrl: string;
   releaseNotes: string;
 } | null> => {
   try {
-    const response = await fetch('https://api.github.com/repos/nickampro/Hoppy/releases/latest');
+    // Use local version.json instead of GitHub API
+    const response = await fetch('/version.json?t=' + Date.now());
     
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status}`);
+      throw new Error(`Version fetch error: ${response.status}`);
     }
     
-    const release = await response.json();
+    const versionInfo = await response.json();
     
     return {
-      version: release.tag_name,
-      downloadUrl: release.html_url,
-      releaseNotes: release.body || 'No release notes available'
+      version: versionInfo.version,
+      downloadUrl: window.location.origin,
+      releaseNotes: versionInfo.features ? versionInfo.features.join(', ') : 'Latest features'
     };
   } catch (error) {
     console.warn('Failed to fetch latest version:', error);

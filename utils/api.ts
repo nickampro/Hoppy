@@ -2,8 +2,8 @@
 import { LeaderboardEntry } from '../types';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? 'https://hoppy-api.your-domain.com/api'  // Replace with your actual API domain
-    : 'http://localhost:3002/api';
+    ? 'https://hoppy-api.caprover.nickam.cc/api'  // Update with your actual API domain
+    : 'http://localhost:3001/api';
 
 // Generate or retrieve device ID for cross-device sync
 export const getDeviceId = (): string => {

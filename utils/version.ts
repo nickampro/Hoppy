@@ -80,10 +80,31 @@ export const forceUpdate = async (): Promise<void> => {
             );
         }
         
-        // Clear localStorage and sessionStorage
-        console.log('🧹 Clearing local storage...');
+        // Clear localStorage and sessionStorage, but preserve important game data
+        console.log('🧹 Clearing storage while preserving game data...');
+        
+        // Backup important data before clearing
+        const leaderboardData = localStorage.getItem('hoppy-leaderboard');
+        const highScoreData = localStorage.getItem('hoppyAvoidanceHighScore');
+        const settingsData = localStorage.getItem('hoppy-settings');
+        
+        // Clear all storage
         localStorage.clear();
         sessionStorage.clear();
+        
+        // Restore important game data
+        if (leaderboardData) {
+            localStorage.setItem('hoppy-leaderboard', leaderboardData);
+            console.log('💾 Preserved leaderboard data');
+        }
+        if (highScoreData) {
+            localStorage.setItem('hoppyAvoidanceHighScore', highScoreData);
+            console.log('💾 Preserved high score data');
+        }
+        if (settingsData) {
+            localStorage.setItem('hoppy-settings', settingsData);
+            console.log('💾 Preserved settings data');
+        }
         
         // Force clear any remaining cache by adding timestamp
         console.log('🔄 Force reloading with cache bust...');
