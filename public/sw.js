@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hoppy-game-v2-debug';
+const CACHE_NAME = 'hoppy-game-v1.1.0'; // Update this with each release
 const urlsToCache = [
   '/',
   '/index.html',
@@ -10,16 +10,17 @@ const urlsToCache = [
   '/components/Scoreboard.tsx',
   '/components/StartScreen.tsx',
   '/components/Tree.tsx',
+  '/components/NameEntry.tsx',
+  '/components/Leaderboard.tsx',
   '/constants.ts',
   '/types.ts',
+  '/utils/leaderboard.ts',
+  '/utils/api.ts',
+  '/utils/version.ts',
   '/manifest.json',
   '/icons/icon-192x192.svg',
   '/icons/icon-512x512.svg',
-  '/icons/icon-apple-touch.svg',
-  'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap',
-  'https://aistudiocdn.com/react@^19.2.0',
-  'https://aistudiocdn.com/react-dom@^19.2.0'
+  '/icons/icon-apple-touch.svg'
 ];
 
 // Install event - cache resources

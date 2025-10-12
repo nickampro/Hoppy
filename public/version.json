@@ -1,0 +1,13 @@
+{
+  "version": "1.1.0",
+  "buildDate": "2025-10-12T20:30:00Z",
+  "features": [
+    "Global leaderboard with MySQL backend",
+    "Cross-device score sync",
+    "PWA cache management",
+    "Settings with difficulty modes",
+    "Pause functionality",
+    "Double jump in easy mode",
+    "Enhanced settings UI"
+  ]
+}
