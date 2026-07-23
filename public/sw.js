@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hoppy-game-v1.2.7'; // Update this with each release
+const CACHE_NAME = 'hoppy-game-v1.2.8'; // Update this with each release
 const urlsToCache = [
   '/',
   '/index.html',

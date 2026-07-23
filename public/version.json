@@ -1,9 +1,9 @@
 {
-  "version": "1.2.7",
-  "buildDate": "2026-07-23T18:40:00Z",
+  "version": "1.2.8",
+  "buildDate": "2026-07-23T19:00:00Z",
   "features": [
-    "Global leaderboard API fallback now rejects non-JSON responses",
-    "Improved API host resolution for mobile leaderboard consistency",
-    "Health endpoint now reports live database connectivity and score count"
+    "Parent stage now unlocks spouse plus baby companion lives",
+    "Companion rabbits now run and jump beside the main rabbit",
+    "Rescue grace window adds temporary invulnerability and speed recovery"
   ]
 }

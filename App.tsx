@@ -64,13 +64,9 @@ const getUsernameCookie = (): string => {
     return decodeURIComponent(match.split('=')[1] || '');
 };
 
-const getFamilyLifeCapacity = (level: number): number => {
-    if (level >= 65) return 5;
-    if (level >= 50) return 4;
-    if (level >= 35) return 3;
-    if (level >= 20) return 2;
-    return 1;
-};
+const PARENT_LEVEL_START = 12;
+const MAX_BABY_LIVES = 6;
+const RESCUE_GRACE_MS = 2200;
 
 const getRabbitLifeStats = (level: number): RabbitLifeStats => {
     const getDescriptor = (lvl: number): string => {
@@ -205,8 +201,9 @@ const App: React.FC = () => {
     const [rabbitAgeLabel, setRabbitAgeLabel] = useState<RabbitLifeStats['ageLabel']>('1 Baby');
     const [completedRunLevel, setCompletedRunLevel] = useState(1);
     const [completedRunAgeLabel, setCompletedRunAgeLabel] = useState('1 Baby');
-    const [familyLifeCapacity, setFamilyLifeCapacity] = useState(1);
-    const [livesRemaining, setLivesRemaining] = useState(1);
+    const [spouseAlive, setSpouseAlive] = useState(false);
+    const [babyLives, setBabyLives] = useState(0);
+    const [graceActive, setGraceActive] = useState(false);
     const [isHitFlash, setIsHitFlash] = useState(false);
     const [levelUpNotice, setLevelUpNotice] = useState<string | null>(null);
     const [nextLevelMarkerX, setNextLevelMarkerX] = useState<number | null>(null);
@@ -227,7 +224,10 @@ const App: React.FC = () => {
     const runGhostFrames = useRef<GhostFrame[]>([]);
     const bestGhostRef = useRef<GhostFrame[]>([]);
     const invulnerableUntil = useRef(0);
+    const rescueRecoveryUntil = useRef(0);
     const levelPauseUntil = useRef(0);
+
+    const totalLives = 1 + (spouseAlive ? 1 : 0) + babyLives;
 
     const getRabbitHorizontalRange = useCallback((level: number, width: number) => {
         const rabbitLife = getRabbitLifeStats(level);
@@ -278,12 +278,15 @@ const App: React.FC = () => {
         setRabbitAgeLabel('1 Baby');
         setCompletedRunLevel(1);
         setCompletedRunAgeLabel('1 Baby');
-        setFamilyLifeCapacity(1);
-        setLivesRemaining(1);
+        setSpouseAlive(false);
+        setBabyLives(0);
+        setGraceActive(false);
         setIsHitFlash(false);
         setLevelUpNotice(null);
         setNextLevelMarkerX(null);
         setNextLevelMarkerLevel(null);
+        invulnerableUntil.current = 0;
+        rescueRecoveryUntil.current = 0;
         levelPauseUntil.current = 0;
         setRenderedRabbitY(GROUND_HEIGHT);
         setRenderedTrees([]);
@@ -315,8 +318,8 @@ const App: React.FC = () => {
 
     useEffect(() => {
         // One-time migration to set ghost replay off by default for this release.
-        if (settings.version !== '1.2.7' && settings.ghostReplayEnabled !== false) {
-            const migratedSettings = { ...settings, ghostReplayEnabled: false, version: '1.2.7' };
+        if (settings.version !== '1.2.8' && settings.ghostReplayEnabled !== false) {
+            const migratedSettings = { ...settings, ghostReplayEnabled: false, version: '1.2.8' };
             setSettings(migratedSettings);
             setGhostEnabled(false);
             saveSettings(migratedSettings);
@@ -633,13 +636,6 @@ const App: React.FC = () => {
             rabbitXRef.current = Math.min(maxX, Math.max(minX, rabbitXRef.current));
         }
 
-        const nextCapacity = getFamilyLifeCapacity(runLevel);
-        if (nextCapacity > familyLifeCapacity) {
-            const gain = nextCapacity - familyLifeCapacity;
-            setFamilyLifeCapacity(nextCapacity);
-            setLivesRemaining(prev => prev + gain);
-        }
-
         // Rabbit physics
         rabbitVelocityY.current += GRAVITY;
         rabbitY.current += rabbitVelocityY.current;
@@ -663,7 +659,11 @@ const App: React.FC = () => {
             hasDoubleJumped.current = false; // Reset double jump when landing
         }
 
-        gameSpeed.current += GAME_SPEED_INCREMENT;
+        if (timestamp < rescueRecoveryUntil.current) {
+            gameSpeed.current = Math.max(INITIAL_GAME_SPEED * 0.82, gameSpeed.current - 0.03);
+        } else {
+            gameSpeed.current += GAME_SPEED_INCREMENT;
+        }
 
         let newScore = score;
         let passedTreeCount = 0;
@@ -685,10 +685,42 @@ const App: React.FC = () => {
             newScore += passedTreeCount * comboMultiplier;
 
             const nextRunLevel = Math.floor(newScore / 15) + 1;
-
             if (nextRunLevel > runLevel) {
+                let spouseAfterGrowth = spouseAlive;
+                let babyLivesAfterGrowth = babyLives;
+                let babiesGained = 0;
+
+                for (let level = runLevel + 1; level <= nextRunLevel; level += 1) {
+                    if (level < PARENT_LEVEL_START) {
+                        continue;
+                    }
+
+                    if (!spouseAfterGrowth) {
+                        spouseAfterGrowth = true;
+                        babyLivesAfterGrowth = Math.max(1, babyLivesAfterGrowth);
+                        babiesGained += 1;
+                        continue;
+                    }
+
+                    if (babyLivesAfterGrowth < MAX_BABY_LIVES) {
+                        babyLivesAfterGrowth += 1;
+                        babiesGained += 1;
+                    }
+                }
+
+                if (spouseAfterGrowth !== spouseAlive) {
+                    setSpouseAlive(spouseAfterGrowth);
+                }
+
+                if (babyLivesAfterGrowth !== babyLives) {
+                    setBabyLives(babyLivesAfterGrowth);
+                }
+
                 const nextLife = getRabbitLifeStats(nextRunLevel);
-                setLevelUpNotice(`LEVEL UP ${nextRunLevel} | ${nextLife.ageLabel}`);
+                const familySuffix = babiesGained > 0
+                    ? ` | +${babiesGained} ${babiesGained > 1 ? 'BABIES' : 'BABY'}`
+                    : '';
+                setLevelUpNotice(`LEVEL UP ${nextRunLevel} | ${nextLife.ageLabel}${familySuffix}`);
                 levelPauseUntil.current = timestamp + 2600;
                 setTimeout(() => setLevelUpNotice(null), 2600);
             }
@@ -774,14 +806,26 @@ const App: React.FC = () => {
                 return false;
             }
 
-            if (livesRemaining > 1) {
-                setLivesRemaining(prev => Math.max(1, prev - 1));
+            if (totalLives > 1) {
+                let rescueLabel = 'BABY RESCUED YOU';
+                if (babyLives > 0) {
+                    setBabyLives(prev => Math.max(0, prev - 1));
+                } else if (spouseAlive) {
+                    setSpouseAlive(false);
+                    rescueLabel = 'SPOUSE SAVED YOU';
+                }
+
                 setIsHitFlash(true);
-                setTimeout(() => setIsHitFlash(false), 250);
+                setGraceActive(true);
+                setTimeout(() => setIsHitFlash(false), 420);
+                setTimeout(() => setGraceActive(false), RESCUE_GRACE_MS);
+                setLevelUpNotice(rescueLabel);
+                setTimeout(() => setLevelUpNotice(null), 1400);
                 currentStreak.current = 0;
                 setStreak(0);
                 setScoreMultiplier(1);
-                invulnerableUntil.current = timestamp + 1200;
+                invulnerableUntil.current = timestamp + RESCUE_GRACE_MS;
+                rescueRecoveryUntil.current = timestamp + RESCUE_GRACE_MS;
                 trees.current = trees.current.filter(obstacle => obstacle.id !== id);
                 return false;
             }
@@ -851,9 +895,10 @@ const App: React.FC = () => {
         saveGhostIfBest,
         settings,
         sceneWidth,
-        familyLifeCapacity,
+        spouseAlive,
+        babyLives,
         getRabbitHorizontalRange,
-        livesRemaining,
+        totalLives,
     ]);
 
     useEffect(() => {
@@ -948,7 +993,7 @@ const App: React.FC = () => {
                     multiplier={scoreMultiplier}
                     tierName={getTierName(score)}
                     ageLabel={displayRunAgeLabel}
-                    lives={livesRemaining}
+                    lives={totalLives}
                     nextLevelScore={displayRunLevel * 15}
                     seasonLevel={playerProgress.level}
                 />
@@ -1043,19 +1088,34 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {livesRemaining > 1 && (
-                    <div className="absolute left-3 bottom-[92px] z-20 flex gap-2">
-                        {Array.from({ length: livesRemaining - 1 }, (_, index) => (
+                {(spouseAlive || babyLives > 0) && (
+                    <>
+                        {spouseAlive && (
                             <Rabbit
-                                key={`follower-${index}`}
-                                x={Math.max(8, rabbitX - (index + 1) * 26)}
-                                y={GROUND_HEIGHT}
-                                scale={Math.max(0.46, rabbitScale - 0.16)}
-                                isGhost={true}
+                                key="spouse"
+                                x={Math.max(10, Math.min(sceneWidth - 68, rabbitX + (rabbitFacing === 'right' ? -24 : 24)))}
+                                y={renderedRabbitY}
+                                scale={Math.max(0.56, rabbitScale - 0.12)}
+                                isGhost={graceActive}
                                 facing={rabbitFacing}
                             />
-                        ))}
-                    </div>
+                        )}
+                        {Array.from({ length: babyLives }, (_, index) => {
+                            const directionOffset = rabbitFacing === 'right' ? -1 : 1;
+                            const lateralOffset = (index + (spouseAlive ? 2 : 1)) * 22 * directionOffset;
+                            const companionX = Math.max(10, Math.min(sceneWidth - 64, rabbitX + lateralOffset));
+                            return (
+                                <Rabbit
+                                    key={`baby-${index}`}
+                                    x={companionX}
+                                    y={Math.max(GROUND_HEIGHT, renderedRabbitY - 1)}
+                                    scale={Math.max(0.44, rabbitScale - 0.22)}
+                                    isGhost={graceActive}
+                                    facing={rabbitFacing}
+                                />
+                            );
+                        })}
+                    </>
                 )}
 
                 {/* Pause overlay */}
