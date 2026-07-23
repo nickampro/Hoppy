@@ -95,9 +95,8 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ onClose }) => {
             <div>
               <p className="font-bold text-sm">Controls:</p>
               <p className="text-xs text-gray-300">
-                <span className="hidden sm:inline">Press SPACE or UP ARROW</span>
-                <span className="sm:hidden">Tap anywhere</span>
-                {" "}to make Hoppy jump
+                <span className="hidden sm:inline">SPACE/UP to jump, LEFT/RIGHT (or A/D) to move</span>
+                <span className="sm:hidden">Tap center to jump, left/right sides to move</span>
               </p>
             </div>
           </div>
@@ -107,7 +106,7 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ onClose }) => {
             <div>
               <p className="font-bold text-sm">Objective:</p>
               <p className="text-xs text-gray-300">
-                Avoid the trees and survive as long as possible
+                Avoid trees, rocks, and rivers as speed ramps up
               </p>
             </div>
           </div>

@@ -6,9 +6,11 @@ interface RabbitProps {
   y: number;
   x: number;
   isGameOver?: boolean;
+  isGhost?: boolean;
+  facing?: 'left' | 'right';
 }
 
-export const Rabbit: React.FC<RabbitProps> = ({ y, x, isGameOver }) => {
+export const Rabbit: React.FC<RabbitProps> = ({ y, x, isGameOver, isGhost = false, facing = 'right' }) => {
   return (
     <div
       className="absolute pixel-perfect"
@@ -17,8 +19,12 @@ export const Rabbit: React.FC<RabbitProps> = ({ y, x, isGameOver }) => {
         bottom: `${y}px`,
         width: `${RABBIT_WIDTH}px`,
         height: `${RABBIT_HEIGHT}px`,
-        transform: isGameOver ? 'rotate(-90deg)' : 'none',
+        opacity: isGhost ? 0.35 : 1,
+        filter: isGhost ? 'saturate(0.3) brightness(1.3)' : 'none',
+        transform: `${facing === 'left' ? 'scaleX(-1)' : 'scaleX(1)'} ${isGameOver ? 'rotate(-90deg)' : ''}`.trim(),
+        transformOrigin: 'center bottom',
         transition: 'transform 0.3s ease-in-out',
+        pointerEvents: 'none',
       }}
     >
       <div className="absolute w-[44px] h-[28px] bg-white border-2 border-black" style={{ bottom: '4px', left: '0px' }}></div>

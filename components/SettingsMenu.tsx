@@ -238,6 +238,39 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
               {settings.soundEnabled ? 'Sound effects enabled' : 'Sound effects disabled'}
             </p>
           </div>
+
+          {/* Replay Settings */}
+          <div className="border-b pb-4">
+            <h3 className="font-bold text-lg mb-3">👻 Replay</h3>
+
+            <label className="flex items-center justify-between">
+              <span>Show Ghost Replay</span>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={settings.ghostReplayEnabled}
+                  onChange={(e) => handleSettingChange('ghostReplayEnabled', e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  onClick={() => handleSettingChange('ghostReplayEnabled', !settings.ghostReplayEnabled)}
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors ${
+                    settings.ghostReplayEnabled ? 'bg-purple-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                      settings.ghostReplayEnabled ? 'translate-x-6' : 'translate-x-1'
+                    } mt-0.5`}
+                  />
+                </div>
+              </div>
+            </label>
+
+            <p className="text-xs text-gray-600 mt-1">
+              Race against your best recent run
+            </p>
+          </div>
         </div>
 
         {/* Footer */}

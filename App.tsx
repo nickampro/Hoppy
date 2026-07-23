@@ -4,7 +4,8 @@ import {
   GAME_WIDTH, GAME_HEIGHT, GROUND_HEIGHT, RABBIT_WIDTH, RABBIT_HEIGHT,
   RABBIT_INITIAL_X, RABBIT_JUMP_VELOCITY, GRAVITY, TREE_WIDTH,
   MIN_TREE_HEIGHT, MAX_TREE_HEIGHT, LATE_GAME_MIN_HEIGHT, LATE_GAME_MAX_HEIGHT,
-  INITIAL_GAME_SPEED, GAME_SPEED_INCREMENT, HIGH_SCORE_KEY
+    INITIAL_GAME_SPEED, GAME_SPEED_INCREMENT, HIGH_SCORE_KEY,
+    RABBIT_MOVE_SPEED, RABBIT_MIN_X, RABBIT_MAX_X, ROCK_WIDTH, RIVER_WIDTH
 } from './constants';
 import { type Tree as TreeType, GameStatus, LeaderboardEntry } from './types';
 import { GameSettings } from './types/settings';
@@ -32,6 +33,29 @@ import {
     recordGameResult,
     savePlayerName,
 } from './utils/progression';
+
+interface GhostFrame {
+    x: number;
+    y: number;
+}
+
+const GHOST_RUN_KEY = 'hoppy-best-run-ghost';
+const USERNAME_COOKIE_KEY = 'hoppyPlayerName';
+
+const setUsernameCookie = (name: string): void => {
+    const value = encodeURIComponent(name.trim());
+    if (!value) return;
+    const expires = new Date();
+    expires.setFullYear(expires.getFullYear() + 1);
+    document.cookie = `${USERNAME_COOKIE_KEY}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+};
+
+const getUsernameCookie = (): string => {
+    const cookies = document.cookie ? document.cookie.split('; ') : [];
+    const match = cookies.find(entry => entry.startsWith(`${USERNAME_COOKIE_KEY}=`));
+    if (!match) return '';
+    return decodeURIComponent(match.split('=')[1] || '');
+};
 
 const App: React.FC = () => {
     const getInitialHighScore = (): number => {
@@ -62,7 +86,14 @@ const App: React.FC = () => {
     const [xpGained, setXpGained] = useState(0);
     const [unlockedAchievements, setUnlockedAchievements] = useState<AchievementDefinition[]>([]);
     const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(loadProgress);
+    const [rabbitX, setRabbitX] = useState(RABBIT_INITIAL_X);
+    const [rabbitFacing, setRabbitFacing] = useState<'left' | 'right'>('right');
+    const [ghostEnabled, setGhostEnabled] = useState(settings.ghostReplayEnabled);
+    const [ghostFrames, setGhostFrames] = useState<GhostFrame[]>([]);
+    const [ghostFrameIndex, setGhostFrameIndex] = useState(0);
+    const [showGhostHint, setShowGhostHint] = useState(false);
 
+    const rabbitXRef = useRef(RABBIT_INITIAL_X);
     const rabbitY = useRef(GROUND_HEIGHT);
     const rabbitVelocityY = useRef(0);
     const trees = useRef<TreeType[]>([]);
@@ -72,9 +103,14 @@ const App: React.FC = () => {
     const hasDoubleJumped = useRef(false); // Track double jump usage
     const currentStreak = useRef(0);
     const bestRunStreak = useRef(0);
+    const moveLeftPressed = useRef(false);
+    const moveRightPressed = useRef(false);
+    const runGhostFrames = useRef<GhostFrame[]>([]);
+    const bestGhostRef = useRef<GhostFrame[]>([]);
 
     const resetGame = useCallback(() => {
         rabbitY.current = GROUND_HEIGHT;
+        rabbitXRef.current = RABBIT_INITIAL_X;
         rabbitVelocityY.current = 0;
         trees.current = [];
         gameSpeed.current = INITIAL_GAME_SPEED;
@@ -92,12 +128,16 @@ const App: React.FC = () => {
         setGlobalRank(null);
         setXpGained(0);
         setUnlockedAchievements([]);
+        setRabbitX(RABBIT_INITIAL_X);
+        setRabbitFacing('right');
+        setGhostFrameIndex(0);
         setRenderedRabbitY(GROUND_HEIGHT);
         setRenderedTrees([]);
     }, []);
 
     const startGame = useCallback(() => {
         resetGame();
+        setShowGhostHint(ghostEnabled && bestGhostRef.current.length > 0);
         setGameOverTime(null); // Reset the game over time
         setIsCountingDown(true);
         setCountdown(3);
@@ -109,6 +149,7 @@ const App: React.FC = () => {
                     clearInterval(countdownInterval);
                     setIsCountingDown(false);
                     setCountdown(null);
+                    runGhostFrames.current = [];
                     setGameStatus(GameStatus.Playing);
                     return null;
                 }
@@ -151,11 +192,27 @@ const App: React.FC = () => {
             return;
         }
 
+        setUsernameCookie(knownPlayerName);
+
         const submissionResult = await submitLeaderboardScore(knownPlayerName, score);
         setLeaderboard(submissionResult.leaderboard);
         setGlobalRank(submissionResult.rank);
         setGameStatus(GameStatus.GameOver);
     }, [highScore, playerProgress.playerName, score, settings.difficulty]);
+
+    const saveGhostIfBest = useCallback((finalScore: number) => {
+        if (runGhostFrames.current.length < 8 || finalScore < highScore) {
+            return;
+        }
+
+        try {
+            localStorage.setItem(GHOST_RUN_KEY, JSON.stringify(runGhostFrames.current));
+            bestGhostRef.current = [...runGhostFrames.current];
+            setGhostFrames(bestGhostRef.current);
+        } catch (error) {
+            console.warn('Unable to save ghost replay:', error);
+        }
+    }, [highScore]);
 
     const handleJump = useCallback((e?: KeyboardEvent) => {
         if (!e || e.code === 'ArrowUp' || e.code === 'Space') {
@@ -192,6 +249,30 @@ const App: React.FC = () => {
         }
     }, [gameStatus, startGame, settings, gameOverTime]);
 
+    const handleMovementDown = useCallback((e: KeyboardEvent) => {
+        if (gameStatus !== GameStatus.Playing) return;
+
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+            moveLeftPressed.current = true;
+            setRabbitFacing('left');
+        }
+
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+            moveRightPressed.current = true;
+            setRabbitFacing('right');
+        }
+    }, [gameStatus]);
+
+    const handleMovementUp = useCallback((e: KeyboardEvent) => {
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+            moveLeftPressed.current = false;
+        }
+
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+            moveRightPressed.current = false;
+        }
+    }, []);
+
     const handleTouchJump = useCallback((e: TouchEvent) => {
         // Don't handle touches on buttons, inputs, or other interactive elements
         const target = e.target as HTMLElement;
@@ -206,12 +287,30 @@ const App: React.FC = () => {
         }
         
         e.preventDefault();
+        const touch = e.touches[0];
+        const viewportWidth = window.innerWidth;
+
+        if (touch.clientX < viewportWidth * 0.33) {
+            rabbitXRef.current = Math.max(RABBIT_MIN_X, rabbitXRef.current - 34);
+            setRabbitFacing('left');
+            setRabbitX(rabbitXRef.current);
+            return;
+        }
+
+        if (touch.clientX > viewportWidth * 0.67) {
+            rabbitXRef.current = Math.min(RABBIT_MAX_X, rabbitXRef.current + 34);
+            setRabbitFacing('right');
+            setRabbitX(rabbitXRef.current);
+            return;
+        }
+
         handleJump();
     }, [handleJump]);
 
     const handleNameSubmit = useCallback(async (name: string) => {
         const updatedProgress = savePlayerName(name);
         setPlayerProgress(updatedProgress);
+        setUsernameCookie(name);
 
         const submissionResult = await submitLeaderboardScore(name, score);
         setLeaderboard(submissionResult.leaderboard);
@@ -243,6 +342,7 @@ const App: React.FC = () => {
     // Save settings when they change
     const handleSettingsChange = useCallback((newSettings: GameSettings) => {
         setSettings(newSettings);
+        setGhostEnabled(newSettings.ghostReplayEnabled);
         saveSettings(newSettings);
     }, []);
 
@@ -262,6 +362,25 @@ const App: React.FC = () => {
             const leaderboard = await getLeaderboard();
             setLeaderboard(leaderboard);
         };
+
+        const savedGhost = localStorage.getItem(GHOST_RUN_KEY);
+        if (savedGhost) {
+            try {
+                const parsed = JSON.parse(savedGhost) as GhostFrame[];
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    bestGhostRef.current = parsed;
+                    setGhostFrames(parsed);
+                }
+            } catch (error) {
+                console.warn('Failed to load ghost replay:', error);
+            }
+        }
+
+        const cookieName = getUsernameCookie();
+        if (cookieName && !loadProgress().playerName) {
+            const updated = savePlayerName(cookieName);
+            setPlayerProgress(updated);
+        }
         
         loadLeaderboard();
         setCurrentVersion(); // Set current app version
@@ -302,17 +421,24 @@ const App: React.FC = () => {
             
             // Regular game controls
             handleJump(e);
+            handleMovementDown(e);
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            handleMovementUp(e);
         };
         
         window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
         window.addEventListener('touchstart', handleTouchJump, { passive: false });
         window.addEventListener('click', handleClickJump);
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
             window.removeEventListener('touchstart', handleTouchJump);
             window.removeEventListener('click', handleClickJump);
         };
-    }, [handleJump, handleTouchJump, handleClickJump]);
+    }, [handleJump, handleTouchJump, handleClickJump, handleMovementDown, handleMovementUp]);
   
     const gameLoop = useCallback((timestamp: number) => {
         if (gameStatus !== GameStatus.Playing || gameIsPaused || isCountingDown) return;
@@ -320,6 +446,13 @@ const App: React.FC = () => {
         // Rabbit physics
         rabbitVelocityY.current += GRAVITY;
         rabbitY.current += rabbitVelocityY.current;
+
+        if (moveLeftPressed.current && !moveRightPressed.current) {
+            rabbitXRef.current = Math.max(RABBIT_MIN_X, rabbitXRef.current - RABBIT_MOVE_SPEED);
+        } else if (moveRightPressed.current && !moveLeftPressed.current) {
+            rabbitXRef.current = Math.min(RABBIT_MAX_X, rabbitXRef.current + RABBIT_MOVE_SPEED);
+        }
+
         if (rabbitY.current < GROUND_HEIGHT) {
             rabbitY.current = GROUND_HEIGHT;
             rabbitVelocityY.current = 0;
@@ -334,7 +467,7 @@ const App: React.FC = () => {
         trees.current = trees.current.map(tree => ({ ...tree, x: tree.x - gameSpeed.current }));
 
         trees.current.forEach(tree => {
-            if (!tree.passed && tree.x + TREE_WIDTH < RABBIT_INITIAL_X) {
+            if (!tree.passed && tree.x + tree.width < rabbitXRef.current) {
                 tree.passed = true;
                 passedTreeCount++;
             }
@@ -356,48 +489,75 @@ const App: React.FC = () => {
             setScore(newScore);
         }
         
-        trees.current = trees.current.filter(tree => tree.x > -TREE_WIDTH);
+        trees.current = trees.current.filter(tree => tree.x > -Math.max(tree.width, TREE_WIDTH));
 
-        const spawnInterval = Math.max(550, 1000 - (runLevel - 1) * 40);
+        const spawnInterval = Math.max(460, 860 - (runLevel - 1) * 35);
         if (timestamp - lastTreeTime.current > spawnInterval) {
             const lastTree = trees.current[trees.current.length - 1];
             if (!lastTree || lastTree.x < GAME_WIDTH - (250 + Math.random() * 250) ) {
                 // Progressive difficulty: start with small trees, gradually increase
-            const difficultyProgress = Math.min(newScore / 30, 1);
+            const difficultyProgress = Math.min(newScore / 35, 1);
                 const currentMinHeight = MIN_TREE_HEIGHT + (LATE_GAME_MIN_HEIGHT - MIN_TREE_HEIGHT) * difficultyProgress;
                 const currentMaxHeight = MAX_TREE_HEIGHT + (LATE_GAME_MAX_HEIGHT - MAX_TREE_HEIGHT) * difficultyProgress;
-                
-                const newHeight = currentMinHeight + Math.random() * (currentMaxHeight - currentMinHeight);
+
+                const obstacleRoll = Math.random();
+                const obstacleType: TreeType['type'] = obstacleRoll < 0.58 ? 'tree' : obstacleRoll < 0.83 ? 'rock' : 'river';
+                const obstacleWidth = obstacleType === 'tree' ? TREE_WIDTH : obstacleType === 'rock' ? ROCK_WIDTH : RIVER_WIDTH;
+                const newHeight = obstacleType === 'river'
+                    ? 22
+                    : currentMinHeight + Math.random() * (currentMaxHeight - currentMinHeight);
                 // Spawn trees well off-screen to ensure smooth entry on all screen sizes
-                trees.current.push({ id: Date.now(), x: GAME_WIDTH + TREE_WIDTH + 50, height: newHeight, passed: false });
+                trees.current.push({
+                    id: Date.now(),
+                    x: GAME_WIDTH + obstacleWidth + 50,
+                    width: obstacleWidth,
+                    type: obstacleType,
+                    height: newHeight,
+                    passed: false
+                });
                 lastTreeTime.current = timestamp;
             }
         }
         
-        const rabbitRect = { x: RABBIT_INITIAL_X, y: rabbitY.current, width: RABBIT_WIDTH - 10, height: RABBIT_HEIGHT - 10 };
+        const rabbitRect = { x: rabbitXRef.current, y: rabbitY.current, width: RABBIT_WIDTH - 10, height: RABBIT_HEIGHT - 10 };
         for (const tree of trees.current) {
-            // Both rabbit and tree use bottom-up coordinates (bottom: Npx in CSS)
-            // Tree starts at GROUND_HEIGHT and extends upward by tree.height
-            // Rabbit is at rabbitY.current and extends upward by RABBIT_HEIGHT
-            const treeRect = { x: tree.x, y: GROUND_HEIGHT, width: TREE_WIDTH, height: tree.height };
+            const treeRect = { x: tree.x, y: GROUND_HEIGHT, width: tree.width, height: tree.height };
             
-            // Check collision: both rectangles use same coordinate system (bottom-up)
+            if (tree.type === 'river') {
+                const rabbitFeetBottom = rabbitRect.y;
+                const feetInsideRiver = rabbitRect.x + rabbitRect.width * 0.6 > treeRect.x && rabbitRect.x + rabbitRect.width * 0.4 < treeRect.x + treeRect.width;
+                const fellIntoRiver = feetInsideRiver && rabbitFeetBottom <= GROUND_HEIGHT + 18;
+                if (fellIntoRiver) {
+                    saveGhostIfBest(newScore);
+                    void endGame();
+                    return;
+                }
+                continue;
+            }
+
             if (
                 rabbitRect.x < treeRect.x + treeRect.width &&
                 rabbitRect.x + rabbitRect.width > treeRect.x &&
                 rabbitRect.y < treeRect.y + treeRect.height &&
                 rabbitRect.y + rabbitRect.height > treeRect.y
             ) {
+                saveGhostIfBest(newScore);
                 void endGame();
                 return;
             }
         }
 
+        runGhostFrames.current.push({ x: rabbitXRef.current, y: rabbitY.current });
+        if (ghostEnabled && ghostFrames.length > 0) {
+            setGhostFrameIndex(prev => (prev + 1) % ghostFrames.length);
+        }
+
+        setRabbitX(rabbitXRef.current);
         setRenderedRabbitY(rabbitY.current);
         setRenderedTrees([...trees.current]);
 
         gameLoopId.current = requestAnimationFrame(gameLoop);
-    }, [score, endGame, gameStatus, gameIsPaused, isCountingDown, runLevel, settings]);
+    }, [score, endGame, gameStatus, gameIsPaused, ghostEnabled, ghostFrames.length, isCountingDown, runLevel, saveGhostIfBest, settings]);
 
     useEffect(() => {
         if (gameStatus === GameStatus.Playing) {
@@ -425,12 +585,13 @@ const App: React.FC = () => {
             }}
         >
             <div
-                className="relative bg-[#87CEEB] overflow-hidden"
+                className="relative bg-[#87CEEB] overflow-hidden border-[6px] border-[#1f3d5a]"
                 style={{ 
-                    width: '100vw',
-                    height: '100vh',
-                    aspectRatio: `${GAME_WIDTH}/${GAME_HEIGHT}`,
-                    objectFit: 'contain'
+                    width: 'min(100vw, calc(100vh * 1.3333333))',
+                    height: 'min(100vh, calc(100vw / 1.3333333))',
+                    maxWidth: `${GAME_WIDTH}px`,
+                    maxHeight: `${GAME_HEIGHT}px`,
+                    boxShadow: '0 0 0 4px #0e2236, 0 12px 0 #0a1824'
                 }}
             >
                 {/* Update notification */}
@@ -459,18 +620,18 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {/* Settings Button - Always visible, larger, serves as pause during gameplay */}
+                {/* Settings Button */}
                 <button
                     onClick={handleSettingsToggle}
-                    className="absolute top-2 right-2 text-white hover:scale-105 transition-all z-40 w-12 h-12 flex items-center justify-center text-2xl"
+                    className="absolute top-2 right-2 text-white transition-all z-40 w-11 h-11 flex items-center justify-center text-xl border-2 border-black"
                     title={gameStatus === GameStatus.Playing ? (gameIsPaused ? "Resume Game" : "Pause Game") : "Settings"}
                     style={{ 
-                        backgroundColor: 'rgba(0,0,0,0.2)',
-                        backdropFilter: 'blur(4px)',
-                        borderRadius: '8px'
+                        background: 'linear-gradient(180deg, #2f6f9f 0%, #18466a 100%)',
+                        borderRadius: '2px',
+                        boxShadow: '0 4px 0 #0c2338'
                     }}
                 >
-                    {gameStatus === GameStatus.Playing && gameIsPaused ? '▶️' : '⚙️'}
+                    {gameStatus === GameStatus.Playing && gameIsPaused ? '▶' : '⚙'}
                 </button>
 
                 <Scoreboard
@@ -486,8 +647,14 @@ const App: React.FC = () => {
                 {gameStatus === GameStatus.Playing && !gameIsPaused && (
                     <div className="absolute bottom-4 left-4 right-4 text-center pointer-events-none sm:hidden">
                         <p className="text-xs text-white bg-black bg-opacity-50 rounded px-2 py-1 inline-block">
-                            Tap outside buttons to jump!
+                            Tap left/right to move, tap center to jump
                         </p>
+                    </div>
+                )}
+
+                {showGhostHint && gameStatus !== GameStatus.Playing && (
+                    <div className="absolute top-14 left-3 bg-[#143a58] border-2 border-black text-[#d4efff] px-2 py-1 text-[10px] z-30">
+                        Ghost replay loaded
                     </div>
                 )}
 
@@ -517,9 +684,17 @@ const App: React.FC = () => {
                     </div>
                 )}
                 
-                <Rabbit x={RABBIT_INITIAL_X} y={renderedRabbitY} isGameOver={gameStatus === GameStatus.GameOver} />
+                {ghostEnabled && ghostFrames.length > 0 && gameStatus === GameStatus.Playing && ghostFrames[ghostFrameIndex] && (
+                    <Rabbit
+                        x={ghostFrames[ghostFrameIndex].x}
+                        y={ghostFrames[ghostFrameIndex].y}
+                        isGhost={true}
+                        facing={'right'}
+                    />
+                )}
+                <Rabbit x={rabbitX} y={renderedRabbitY} isGameOver={gameStatus === GameStatus.GameOver} facing={rabbitFacing} />
                 {renderedTrees.map(tree => (
-                    <Tree key={tree.id} x={tree.x} height={tree.height} />
+                    <Tree key={tree.id} x={tree.x} height={tree.height} width={tree.width} type={tree.type} />
                 ))}
                 <Ground />
 

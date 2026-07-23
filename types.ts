@@ -3,6 +3,8 @@ export interface Tree {
   id: number;
   x: number;
   height: number;
+  width: number;
+  type: 'tree' | 'rock' | 'river';
   passed: boolean;
 }
 

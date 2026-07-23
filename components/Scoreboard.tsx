@@ -21,15 +21,14 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({
   tierName = 'Rookie'
 }) => {
   return (
-    <div className="absolute top-3 sm:top-4 left-2 right-2 px-2 sm:px-4 text-white text-sm sm:text-xl z-10" style={{ textShadow: '2px 2px 0 #000' }}>
-      <div className="flex justify-between">
-        <span className="tracking-wide">SCORE: {formatScore(score)}</span>
-        <span className="hidden sm:inline pr-20 tracking-wide">HIGH SCORE: {formatScore(highScore)}</span>
-        <span className="sm:hidden pr-20 tracking-wide">HI: {formatScore(highScore)}</span>
+    <div className="absolute top-2 left-2 right-14 sm:right-16 px-1 sm:px-2 text-white text-[11px] sm:text-base z-10" style={{ textShadow: '2px 2px 0 #000' }}>
+      <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 bg-black bg-opacity-35 border border-black px-2 py-1">
+        <span className="tracking-wide">SCORE {formatScore(score)}</span>
+        <span className="tracking-wide">HI {formatScore(highScore)}</span>
       </div>
-      <div className="mt-1 flex justify-between text-xs sm:text-sm text-yellow-100">
-        <span>LEVEL {level} | {tierName}</span>
-        <span>STREAK {streak} | x{multiplier}</span>
+      <div className="mt-1 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[10px] sm:text-xs text-yellow-100">
+        <span>LEVEL {level} {tierName}</span>
+        <span>STREAK {streak} x{multiplier}</span>
       </div>
     </div>
   );
