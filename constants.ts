@@ -26,7 +26,7 @@ export const LATE_GAME_MIN_HEIGHT = 60;  // Full difficulty minimum (original)
 export const LATE_GAME_MAX_HEIGHT = 180; // Full difficulty maximum (original)
 // Full difficulty is reached at score 20
 
-export const INITIAL_GAME_SPEED = 3.3;
-export const GAME_SPEED_INCREMENT = 0.0028;
+export const INITIAL_GAME_SPEED = 2.95;
+export const GAME_SPEED_INCREMENT = 0.0022;
 
 export const HIGH_SCORE_KEY = 'hoppyAvoidanceHighScore';

@@ -74,11 +74,11 @@ const getFamilyLifeCapacity = (level: number): number => {
 
 const getRabbitLifeStats = (level: number): RabbitLifeStats => {
     const getDescriptor = (lvl: number): string => {
-        if (lvl <= 2) return 'Baby';
-        if (lvl <= 4) return 'Child';
-        if (lvl <= 6) return 'Teen';
-        if (lvl <= 9) return 'Young Adult';
-        if (lvl <= 14) return 'Adult';
+        if (lvl <= 1) return 'Baby';
+        if (lvl <= 2) return 'Child';
+        if (lvl <= 4) return 'Teen';
+        if (lvl <= 6) return 'Young Adult';
+        if (lvl <= 11) return 'Adult';
         if (lvl <= 64) return 'Parent';
         if (lvl <= 89) return 'Elder';
         return 'Ancestor';

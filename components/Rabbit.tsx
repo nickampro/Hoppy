@@ -21,9 +21,10 @@ export const Rabbit: React.FC<RabbitProps> = ({
   const facingLeft = facing === 'left';
   const directionTilt = facingLeft
     ? 'perspective(220px) rotateY(16deg) rotateZ(-3deg)'
-    : 'perspective(220px) rotateY(-12deg) rotateZ(0deg)';
+    : 'perspective(220px) rotateY(12deg) rotateZ(0deg)';
+  const facingFlip = facingLeft ? '' : 'scaleX(-1)';
 
-  const transform = `${isGameOver ? 'rotate(-65deg) ' : ''}${directionTilt} scale(${scale})`.trim();
+  const transform = `${isGameOver ? 'rotate(-65deg) ' : ''}${directionTilt} ${facingFlip} scale(${scale})`.trim();
 
   return (
     <div
