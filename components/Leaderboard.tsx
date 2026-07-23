@@ -6,12 +6,14 @@ interface LeaderboardProps {
   entries: LeaderboardEntry[];
   currentScore?: number;
   highlightNewEntry?: boolean;
+  maxEntries?: number;
 }
 
 export const Leaderboard: React.FC<LeaderboardProps> = ({ 
   entries, 
   currentScore, 
-  highlightNewEntry = false 
+  highlightNewEntry = false,
+  maxEntries = 10
 }) => {
   const formatScore = (score: number) => score.toString().padStart(4, '0');
 
@@ -45,7 +47,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   return (
     <div className="bg-gray-800 bg-opacity-90 rounded-lg p-4 border-2 border-gray-600">
       <h3 className="text-lg sm:text-xl font-bold text-center mb-4 text-yellow-400">
-        🏆 TOP 3 SCORES 🏆
+        🏆 TOP {maxEntries} SCORES 🏆
       </h3>
       
       <div className="space-y-2">
@@ -99,10 +101,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
         })}
       </div>
 
-      {/* Fill empty slots if less than 3 entries */}
-      {entries.length < 3 && (
+      {/* Fill empty slots to indicate target board size */}
+      {entries.length < maxEntries && (
         <div className="mt-2 space-y-2">
-          {Array.from({ length: 3 - entries.length }, (_, index) => {
+          {Array.from({ length: maxEntries - entries.length }, (_, index) => {
             const position = entries.length + index + 1;
             return (
               <div

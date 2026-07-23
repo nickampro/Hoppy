@@ -2,7 +2,13 @@ import { LeaderboardEntry } from '../types';
 import { getGlobalLeaderboard, submitScoreToAPI } from './api';
 
 const LEADERBOARD_KEY = 'hoppy-leaderboard';
-const MAX_ENTRIES = 3;
+const MAX_ENTRIES = 10;
+
+interface ScoreSubmissionResult {
+  leaderboard: LeaderboardEntry[];
+  rank: number | null;
+  submittedToApi: boolean;
+}
 
 export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
   try {
@@ -41,68 +47,61 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
 };
 
 export const addLeaderboardEntry = async (name: string, score: number): Promise<LeaderboardEntry[]> => {
-  console.log('🔍 addLeaderboardEntry called with:', { name, score });
-  
-  // Try to submit to API first
+  const result = await submitLeaderboardScore(name, score);
+  return result.leaderboard;
+};
+
+export const submitLeaderboardScore = async (name: string, score: number): Promise<ScoreSubmissionResult> => {
+  const playerName = name.trim() || 'Anonymous';
+  let rank: number | null = null;
+  let submittedToApi = false;
+
   try {
-    const apiResult = await submitScoreToAPI(name.trim() || 'Anonymous', score);
+    const apiResult = await submitScoreToAPI(playerName, score);
     if (apiResult.success) {
-      console.log('✅ Score submitted to API successfully, rank:', apiResult.rank);
-    } else {
-      console.warn('⚠️ API submission failed:', apiResult.error);
+      submittedToApi = true;
+      rank = apiResult.rank ?? null;
     }
   } catch (error) {
-    console.warn('⚠️ API submission error:', error);
+    console.warn('Leaderboard API submission failed, using local fallback:', error);
   }
-  
-  // Get current leaderboard (this will now fetch from API and cache locally)
+
   const currentLeaderboard = await getLeaderboard();
-  console.log('📋 Current leaderboard:', currentLeaderboard);
-  
+
   const newEntry: LeaderboardEntry = {
-    name: name.trim() || 'Anonymous',
+    name: playerName,
     score,
     date: new Date().toISOString(),
   };
-  console.log('✨ New entry created:', newEntry);
-  
+
   const updatedLeaderboard = [...currentLeaderboard, newEntry]
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_ENTRIES);
-  console.log('📝 Updated leaderboard:', updatedLeaderboard);
-  
+
   try {
     localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(updatedLeaderboard));
-    console.log('💾 Successfully saved to localStorage with key:', LEADERBOARD_KEY);
-    
-    // Verify it was saved
-    const verification = localStorage.getItem(LEADERBOARD_KEY);
-    console.log('🔎 Verification - what was actually saved:', verification);
   } catch (error) {
-    console.error('❌ Error saving leaderboard:', error);
+    console.error('Error saving leaderboard cache:', error);
   }
-  
-  return updatedLeaderboard;
+
+  return {
+    leaderboard: updatedLeaderboard,
+    rank,
+    submittedToApi,
+  };
 };
 
 export const isTopScore = async (score: number): Promise<boolean> => {
-  console.log('🎯 isTopScore called with score:', score);
   const leaderboard = await getLeaderboard();
-  console.log('📊 Current leaderboard length:', leaderboard.length);
-  console.log('📊 MAX_ENTRIES:', MAX_ENTRIES);
   
   // If less than max entries, it's automatically a top score
   if (leaderboard.length < MAX_ENTRIES) {
-    const result = score >= 0; // Allow even score 0 if leaderboard is empty
-    console.log('✅ Less than max entries, result:', result);
-    return result;
+    return score >= 0;
   }
   
   // Check if score beats the lowest top score
   const lowestTopScore = leaderboard[leaderboard.length - 1]?.score || 0;
-  const result = score > lowestTopScore;
-  console.log('🏆 Full leaderboard, lowest score:', lowestTopScore, 'result:', result);
-  return result;
+  return score > lowestTopScore;
 };
 
 export const getLeaderboardPosition = async (score: number): Promise<number> => {

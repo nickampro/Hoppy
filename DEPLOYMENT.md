@@ -38,6 +38,23 @@ After deployment, configure your app in CapRover:
 3. **Environment**: Set to production
 4. **Health Check**: Uses `/health` endpoint
 
+## Environment Variables
+
+Configure these variables in CapRover for the API container:
+
+- `DB_HOST`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_NAME`
+- `DB_PORT` (optional, defaults to `3306`)
+- `FRONTEND_URL` (comma-separated list of allowed origins, for example `https://hoppy.yourdomain.com`)
+
+Configure this variable in CapRover for the web app container:
+
+- `VITE_API_BASE_URL` (for example `https://hoppy-api.yourdomain.com/api`)
+
+If `VITE_API_BASE_URL` is not provided, the frontend will default to `${window.location.origin}/api` in production.
+
 ## 🔧 Features Included
 
 ### Docker Optimization

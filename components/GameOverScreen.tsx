@@ -3,14 +3,27 @@ import React, { useState, useEffect } from 'react';
 import { Leaderboard } from './Leaderboard';
 import { getLeaderboard } from '../utils/leaderboard';
 import { LeaderboardEntry } from '../types';
+import { AchievementDefinition, PlayerProgress } from '../utils/progression';
 
 interface GameOverScreenProps {
   score: number;
   highScore: number;
   onRestart: () => void;
+  rank: number | null;
+  xpGained: number;
+  unlockedAchievements: AchievementDefinition[];
+  progress: PlayerProgress;
 }
 
-export const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, highScore, onRestart }) => {
+export const GameOverScreen: React.FC<GameOverScreenProps> = ({
+  score,
+  highScore,
+  onRestart,
+  rank,
+  xpGained,
+  unlockedAchievements,
+  progress
+}) => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
@@ -38,7 +51,24 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, highScore
           </h2>
           <p className="text-xl sm:text-3xl mb-2">Your Score: {score}</p>
           <p className="text-lg sm:text-xl mb-4">High Score: {highScore}</p>
+          {rank !== null && (
+            <p className="text-sm sm:text-base text-yellow-300 mb-2">Global Rank: #{rank}</p>
+          )}
+          <p className="text-sm sm:text-base text-green-300">+{xpGained} XP | Level {progress.level}</p>
         </div>
+
+        {unlockedAchievements.length > 0 && (
+          <div className="bg-yellow-900 bg-opacity-50 border border-yellow-500 rounded-lg p-3 text-left">
+            <p className="text-sm font-bold text-yellow-200 mb-2">New Achievements</p>
+            <div className="space-y-1">
+              {unlockedAchievements.map((achievement) => (
+                <p key={achievement.id} className="text-xs sm:text-sm text-yellow-50">
+                  🏅 {achievement.title} - {achievement.description}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Leaderboard Toggle */}
         {!showLeaderboard ? (
@@ -52,7 +82,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, highScore
           </div>
         ) : (
           <div className="space-y-4">
-            <Leaderboard entries={leaderboard} currentScore={score} highlightNewEntry={true} />
+            <Leaderboard entries={leaderboard.slice(0, 5)} currentScore={score} highlightNewEntry={true} maxEntries={5} />
             <button
               onClick={() => setShowLeaderboard(false)}
               className="w-full px-4 py-2 bg-gray-500 border-4 border-gray-700 text-white text-sm font-bold hover:bg-gray-600 active:bg-gray-700 transition-colors shadow-lg touch-manipulation rounded"

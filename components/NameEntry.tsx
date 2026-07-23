@@ -5,10 +5,11 @@ interface NameEntryProps {
   position: number;
   onSubmit: (name: string) => void;
   onSkip: () => void;
+  initialName?: string;
 }
 
-export const NameEntry: React.FC<NameEntryProps> = ({ score, position, onSubmit, onSkip }) => {
-  const [name, setName] = useState('');
+export const NameEntry: React.FC<NameEntryProps> = ({ score, position, onSubmit, onSkip, initialName = '' }) => {
+  const [name, setName] = useState(initialName);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -19,37 +20,16 @@ export const NameEntry: React.FC<NameEntryProps> = ({ score, position, onSubmit,
     }
   }, []);
 
-  const handleButtonClick = (e: React.MouseEvent) => {
-    console.log('🎯 Direct button click handler called!');
-    e.preventDefault();
-    
-    if (isSubmitting) {
-      console.log('⏸️ Already submitting, returning early');
-      return;
-    }
-    
-    console.log('🚀 Calling handleSubmit from button click');
-    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-    handleSubmit(fakeEvent);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('📝 NameEntry form submitted!');
-    console.log('📝 Current name:', name);
-    console.log('📝 Is submitting:', isSubmitting);
     
     if (isSubmitting) {
-      console.log('⏸️ Already submitting, returning early');
       return;
     }
     
     setIsSubmitting(true);
-    console.log('📝 Set isSubmitting to true');
     
-    // Call onSubmit immediately instead of using setTimeout
     const finalName = name.trim() || 'Anonymous';
-    console.log('🚀 Calling onSubmit with:', finalName);
     onSubmit(finalName);
   };
 
@@ -110,7 +90,6 @@ export const NameEntry: React.FC<NameEntryProps> = ({ score, position, onSubmit,
             <button
               type="submit"
               disabled={isSubmitting}
-              onClick={handleButtonClick}
               className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-bold rounded border-2 border-green-700 transition-colors touch-manipulation"
             >
               {isSubmitting ? '⏳ Saving...' : '💾 Save Score'}

@@ -18,12 +18,20 @@ import { NameEntry } from './components/NameEntry';
 import { SettingsMenu } from './components/SettingsMenu';
 import { 
   getLeaderboard, 
-  addLeaderboardEntry, 
-  isTopScore, 
+    submitLeaderboardScore,
   getLeaderboardPosition 
 } from './utils/leaderboard';
 import { checkForUpdates, forceUpdate, setCurrentVersion } from './utils/version';
 import { loadSettings, saveSettings, playGameSound } from './utils/settings';
+import {
+    AchievementDefinition,
+    getAchievementById,
+    getTierName,
+    loadProgress,
+    PlayerProgress,
+    recordGameResult,
+    savePlayerName,
+} from './utils/progression';
 
 const App: React.FC = () => {
     const getInitialHighScore = (): number => {
@@ -47,6 +55,13 @@ const App: React.FC = () => {
     const [countdown, setCountdown] = useState<number | null>(null);
     const [isCountingDown, setIsCountingDown] = useState(false);
     const [gameOverTime, setGameOverTime] = useState<number | null>(null); // Track when game ended
+    const [streak, setStreak] = useState(0);
+    const [scoreMultiplier, setScoreMultiplier] = useState(1);
+    const [runLevel, setRunLevel] = useState(1);
+    const [globalRank, setGlobalRank] = useState<number | null>(null);
+    const [xpGained, setXpGained] = useState(0);
+    const [unlockedAchievements, setUnlockedAchievements] = useState<AchievementDefinition[]>([]);
+    const [playerProgress, setPlayerProgress] = useState<PlayerProgress>(loadProgress);
 
     const rabbitY = useRef(GROUND_HEIGHT);
     const rabbitVelocityY = useRef(0);
@@ -55,6 +70,8 @@ const App: React.FC = () => {
     const lastTreeTime = useRef(0);
     const gameLoopId = useRef<number | null>(null);
     const hasDoubleJumped = useRef(false); // Track double jump usage
+    const currentStreak = useRef(0);
+    const bestRunStreak = useRef(0);
 
     const resetGame = useCallback(() => {
         rabbitY.current = GROUND_HEIGHT;
@@ -63,10 +80,18 @@ const App: React.FC = () => {
         gameSpeed.current = INITIAL_GAME_SPEED;
         lastTreeTime.current = 0;
         hasDoubleJumped.current = false; // Reset double jump
+        currentStreak.current = 0;
+        bestRunStreak.current = 0;
         setCountdown(null);
         setIsCountingDown(false);
 
         setScore(0);
+        setStreak(0);
+        setScoreMultiplier(1);
+        setRunLevel(1);
+        setGlobalRank(null);
+        setXpGained(0);
+        setUnlockedAchievements([]);
         setRenderedRabbitY(GROUND_HEIGHT);
         setRenderedTrees([]);
     }, []);
@@ -92,45 +117,47 @@ const App: React.FC = () => {
         }, 1000);
     }, [resetGame]);
 
-  const endGame = () => {
-    console.log('🎮 endGame called, score:', score);
-    console.log('🎮 Current difficulty:', settings.difficulty);
-    
+    const endGame = useCallback(async () => {
     // Set the time when game ended to prevent immediate restarts
     setGameOverTime(Date.now());
+
+        const progressionResult = recordGameResult(score, bestRunStreak.current);
+        setPlayerProgress(progressionResult.progress);
+        setXpGained(progressionResult.xpGained);
+        setUnlockedAchievements(
+            progressionResult.unlockedAchievementIds
+                .map(id => getAchievementById(id))
+                .filter((achievement): achievement is AchievementDefinition => Boolean(achievement))
+        );
     
     // Update high score if needed
     if (score > highScore) {
       setHighScore(score);
       localStorage.setItem(HIGH_SCORE_KEY, score.toString());
-      console.log('🏆 New high score:', score);
     }
     
-    // Only allow leaderboard submission for Normal difficulty
-    if (settings.difficulty === 'normal') {
-      console.log('📊 Checking if top score...');
-      // Handle async leaderboard check without blocking game state
-      isTopScore(score).then((isTop) => {
-        console.log('🏆 isTopScore result:', isTop);
-        
-        if (isTop) {
-          // Calculate the position this score would have
-          getLeaderboardPosition(score).then((position) => {
+        // Only allow leaderboard submission for Normal difficulty
+        if (settings.difficulty !== 'normal' || score <= 0) {
+      setGameStatus(GameStatus.GameOver);
+            return;
+    }
+
+        const knownPlayerName = playerProgress.playerName.trim();
+
+        if (!knownPlayerName) {
+            const position = await getLeaderboardPosition(score);
             setPlayerPosition(position);
             setGameStatus(GameStatus.NameEntry);
-          });
-        } else {
-          setGameStatus(GameStatus.GameOver);
+            return;
         }
-      }).catch((error) => {
-        console.error('Error checking leaderboard:', error);
+
+        const submissionResult = await submitLeaderboardScore(knownPlayerName, score);
+        setLeaderboard(submissionResult.leaderboard);
+        setGlobalRank(submissionResult.rank);
         setGameStatus(GameStatus.GameOver);
-      });
-    } else {
-      console.log('🟢 Easy mode - skipping leaderboard, going to Game Over');
-      setGameStatus(GameStatus.GameOver);
-    }
-  };    const handleJump = useCallback((e?: KeyboardEvent) => {
+    }, [highScore, playerProgress.playerName, score, settings.difficulty]);
+
+    const handleJump = useCallback((e?: KeyboardEvent) => {
         if (!e || e.code === 'ArrowUp' || e.code === 'Space') {
             e?.preventDefault();
             if (gameStatus === GameStatus.Playing) {
@@ -183,12 +210,13 @@ const App: React.FC = () => {
     }, [handleJump]);
 
     const handleNameSubmit = useCallback(async (name: string) => {
-        console.log('🎯 handleNameSubmit called with:', { name, score });
-        const updatedLeaderboard = await addLeaderboardEntry(name, score);
-        console.log('📊 Leaderboard after save:', updatedLeaderboard);
-        setLeaderboard(updatedLeaderboard);
+        const updatedProgress = savePlayerName(name);
+        setPlayerProgress(updatedProgress);
+
+        const submissionResult = await submitLeaderboardScore(name, score);
+        setLeaderboard(submissionResult.leaderboard);
+        setGlobalRank(submissionResult.rank);
         setGameStatus(GameStatus.GameOver);
-        console.log('✅ Game status set to GameOver');
     }, [score]);
 
     const handleNameSkip = useCallback(() => {
@@ -301,30 +329,41 @@ const App: React.FC = () => {
         gameSpeed.current += GAME_SPEED_INCREMENT;
 
         let newScore = score;
-        let passedTree = false;
+        let passedTreeCount = 0;
 
         trees.current = trees.current.map(tree => ({ ...tree, x: tree.x - gameSpeed.current }));
 
         trees.current.forEach(tree => {
             if (!tree.passed && tree.x + TREE_WIDTH < RABBIT_INITIAL_X) {
                 tree.passed = true;
-                newScore++;
-                passedTree = true;
+                passedTreeCount++;
             }
         });
 
-        if (passedTree) {
+        if (passedTreeCount > 0) {
+            currentStreak.current += passedTreeCount;
+            bestRunStreak.current = Math.max(bestRunStreak.current, currentStreak.current);
+
+            const comboMultiplier = Math.min(5, 1 + Math.floor((currentStreak.current - 1) / 4));
+            newScore += passedTreeCount * comboMultiplier;
+
+            const nextRunLevel = Math.floor(newScore / 15) + 1;
+
+            setStreak(currentStreak.current);
+            setScoreMultiplier(comboMultiplier);
+            setRunLevel(nextRunLevel);
             playGameSound('sounds/score.wav', settings);
             setScore(newScore);
         }
         
         trees.current = trees.current.filter(tree => tree.x > -TREE_WIDTH);
 
-        if (timestamp - lastTreeTime.current > 1000) { 
+        const spawnInterval = Math.max(550, 1000 - (runLevel - 1) * 40);
+        if (timestamp - lastTreeTime.current > spawnInterval) {
             const lastTree = trees.current[trees.current.length - 1];
             if (!lastTree || lastTree.x < GAME_WIDTH - (250 + Math.random() * 250) ) {
                 // Progressive difficulty: start with small trees, gradually increase
-                const difficultyProgress = Math.min(score / 20, 1); // Reaches full difficulty at score 20
+            const difficultyProgress = Math.min(newScore / 30, 1);
                 const currentMinHeight = MIN_TREE_HEIGHT + (LATE_GAME_MIN_HEIGHT - MIN_TREE_HEIGHT) * difficultyProgress;
                 const currentMaxHeight = MAX_TREE_HEIGHT + (LATE_GAME_MAX_HEIGHT - MAX_TREE_HEIGHT) * difficultyProgress;
                 
@@ -349,7 +388,7 @@ const App: React.FC = () => {
                 rabbitRect.y < treeRect.y + treeRect.height &&
                 rabbitRect.y + rabbitRect.height > treeRect.y
             ) {
-                endGame();
+                void endGame();
                 return;
             }
         }
@@ -358,7 +397,7 @@ const App: React.FC = () => {
         setRenderedTrees([...trees.current]);
 
         gameLoopId.current = requestAnimationFrame(gameLoop);
-    }, [score, endGame, gameStatus, gameIsPaused, isCountingDown]);
+    }, [score, endGame, gameStatus, gameIsPaused, isCountingDown, runLevel, settings]);
 
     useEffect(() => {
         if (gameStatus === GameStatus.Playing) {
@@ -434,7 +473,14 @@ const App: React.FC = () => {
                     {gameStatus === GameStatus.Playing && gameIsPaused ? '▶️' : '⚙️'}
                 </button>
 
-                <Scoreboard score={score} highScore={highScore} />
+                <Scoreboard
+                    score={score}
+                    highScore={highScore}
+                    level={runLevel}
+                    streak={streak}
+                    multiplier={scoreMultiplier}
+                    tierName={getTierName(score)}
+                />
                 
                 {/* Mobile touch instruction */}
                 {gameStatus === GameStatus.Playing && !gameIsPaused && (
@@ -477,16 +523,27 @@ const App: React.FC = () => {
                 ))}
                 <Ground />
 
-                {gameStatus === GameStatus.Start && <StartScreen onStart={startGame} />}
+                {gameStatus === GameStatus.Start && <StartScreen onStart={startGame} progress={playerProgress} />}
                 {gameStatus === GameStatus.NameEntry && (
                     <NameEntry 
                         score={score}
                         position={playerPosition}
                         onSubmit={handleNameSubmit}
                         onSkip={handleNameSkip}
+                        initialName={playerProgress.playerName}
                     />
                 )}
-                {gameStatus === GameStatus.GameOver && <GameOverScreen score={score} highScore={highScore} onRestart={startGame} />}
+                {gameStatus === GameStatus.GameOver && (
+                    <GameOverScreen
+                        score={score}
+                        highScore={highScore}
+                        onRestart={startGame}
+                        rank={globalRank}
+                        xpGained={xpGained}
+                        unlockedAchievements={unlockedAchievements}
+                        progress={playerProgress}
+                    />
+                )}
                 
                 {/* Settings Menu */}
                 <SettingsMenu

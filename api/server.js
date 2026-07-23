@@ -11,6 +11,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const allowedOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
 // Database configuration from environment variables
 const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
@@ -29,7 +34,20 @@ const pool = mysql.createPool(dbConfig);
 // Middleware
 app.use(helmet());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+        // Allow server-to-server and health checks without an Origin header.
+        if (!origin) {
+            callback(null, true);
+            return;
+        }
+
+        if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -84,39 +102,38 @@ app.get('/api/health', (req, res) => {
 
 // Get global leaderboard
 app.get('/api/leaderboard', async (req, res) => {
-    console.log('🔍 Leaderboard endpoint called');
-    
     try {
         const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
         const type = req.query.type || 'global'; // 'global' or 'daily'
-        
-        console.log('📊 Query params:', { limit, type });
-        
-        let query;
+
+        let query = `
+            SELECT s.id, s.player_name, s.score, s.created_at, u.device_id
+            FROM scores s
+            JOIN users u ON s.user_id = u.id
+        `;
+        const params = [];
+
         if (type === 'daily') {
-            query = 'SELECT * FROM daily_leaderboard LIMIT ?';
-        } else {
-            query = 'SELECT * FROM global_leaderboard LIMIT ?';
+            query += ' WHERE DATE(s.created_at) = CURDATE()';
         }
-        
-        console.log('🔍 Executing query:', query, 'with limit:', limit);
-        
-        const [rows] = await pool.execute(query, [limit]);
-        
-        console.log('✅ Query successful, rows found:', rows.length);
-        console.log('📊 Data:', rows);
+
+        query += ' ORDER BY s.score DESC, s.created_at ASC LIMIT ?';
+        params.push(limit);
+
+        const [rows] = await pool.execute(query, params);
+        const leaderboard = rows.map((row, index) => ({
+            ...row,
+            rank_position: index + 1
+        }));
         
         res.json({
             success: true,
-            leaderboard: rows,
+            leaderboard,
             type: type,
-            count: rows.length
+            count: leaderboard.length
         });
     } catch (error) {
-        console.error('❌ Leaderboard error details:');
-        console.error('Error message:', error.message);
-        console.error('Error code:', error.code);
-        console.error('Error stack:', error.stack);
+        console.error('Error fetching leaderboard:', error);
         
         res.status(500).json({
             success: false,
@@ -171,8 +188,10 @@ app.post('/api/scores', scoreSubmitLimiter, async (req, res) => {
 
         // Get user's rank in global leaderboard
         const [rankResult] = await pool.execute(
-            `SELECT rank_position FROM global_leaderboard WHERE score = ? AND player_name = ? LIMIT 1`,
-            [score, playerName.trim()]
+            `SELECT COUNT(*) + 1 as rank_position
+             FROM scores
+             WHERE score > ? OR (score = ? AND id < ?)`,
+            [score, score, result.insertId]
         );
 
         const rank = rankResult.length > 0 ? rankResult[0].rank_position : null;
@@ -212,7 +231,14 @@ app.get('/api/user/:deviceId/scores', async (req, res) => {
 
         // Get user's best score and stats
         const [stats] = await pool.execute(
-            `SELECT * FROM user_best_scores WHERE device_id = ?`,
+            `SELECT 
+                COALESCE(MAX(s.score), 0) as best_score,
+                COUNT(s.id) as total_games,
+                MIN(s.created_at) as first_game,
+                MAX(s.created_at) as last_game
+             FROM users u
+             LEFT JOIN scores s ON u.id = s.user_id
+             WHERE u.device_id = ?`,
             [deviceId]
         );
 
@@ -286,7 +312,7 @@ app.use('*', (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 Hoppy API server running on port ${PORT}`);
     console.log(`📊 Database: ${dbConfig.host}/${dbConfig.database}`);
-    console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+    console.log(`🌐 CORS enabled for: ${allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'all origins (FRONTEND_URL not set)'}`);
 });
 
 // Graceful shutdown

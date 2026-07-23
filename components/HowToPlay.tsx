@@ -117,7 +117,7 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ onClose }) => {
             <div>
               <p className="font-bold text-sm">Scoring:</p>
               <p className="text-xs text-gray-300">
-                Each tree you pass increases your score
+                Build streaks for score multipliers and faster XP gains
               </p>
             </div>
           </div>
@@ -127,7 +127,7 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ onClose }) => {
             <div>
               <p className="font-bold text-sm">Leaderboard:</p>
               <p className="text-xs text-gray-300">
-                Get a top 3 worldwide score to enter your name!
+                Every normal-mode run can be submitted to the global board
               </p>
             </div>
           </div>

@@ -1,9 +1,15 @@
 // API client for global leaderboard
-import { LeaderboardEntry } from '../types';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? 'https://hoppy-api.caprover.nickam.cc/api'  // Update with your actual API domain
-    : 'http://localhost:3001/api';
+const viteEnv = (import.meta as { env?: Record<string, string | boolean | undefined> }).env || {};
+const configuredBaseUrl = typeof viteEnv.VITE_API_BASE_URL === 'string' ? viteEnv.VITE_API_BASE_URL : undefined;
+
+const normalizeBaseUrl = (url: string): string => url.replace(/\/$/, '');
+
+const API_BASE_URL = configuredBaseUrl
+    ? normalizeBaseUrl(configuredBaseUrl)
+    : Boolean(viteEnv.PROD)
+        ? `${window.location.origin}/api`
+        : 'http://localhost:3001/api';
 
 // Generate or retrieve device ID for cross-device sync
 export const getDeviceId = (): string => {
@@ -150,56 +156,4 @@ export const isAPIAvailable = async (): Promise<boolean> => {
         console.warn('API not available, falling back to localStorage');
         return false;
     }
-};
-
-// Hybrid leaderboard - tries API first, falls back to localStorage
-export const getHybridLeaderboard = async (): Promise<LeaderboardEntry[]> => {
-    const apiAvailable = await isAPIAvailable();
-    
-    if (apiAvailable) {
-        const result = await getGlobalLeaderboard(100);
-        if (result.success && result.leaderboard) {
-            // Convert API format to local format
-            return result.leaderboard.map(entry => ({
-                name: entry.player_name,
-                score: entry.score,
-                date: entry.created_at
-            }));
-        }
-    }
-    
-    // Fallback to localStorage
-    const { getLeaderboard } = await import('./leaderboard');
-    return getLeaderboard();
-};
-
-// Hybrid score submission - tries API first, saves to localStorage as backup
-export const submitHybridScore = async (playerName: string, score: number): Promise<{
-    success: boolean;
-    rank?: number;
-    isOnline?: boolean;
-    error?: string;
-}> => {
-    const apiAvailable = await isAPIAvailable();
-    
-    if (apiAvailable) {
-        const result = await submitScoreToAPI(playerName, score);
-        if (result.success) {
-            return {
-                ...result,
-                isOnline: true
-            };
-        }
-    }
-    
-    // Fallback to localStorage
-    const { addLeaderboardEntry } = await import('./leaderboard');
-    const updatedLeaderboard = addLeaderboardEntry(playerName, score);
-    const rank = updatedLeaderboard.findIndex(entry => entry.score === score && entry.name === playerName) + 1;
-    
-    return {
-        success: true,
-        rank: rank,
-        isOnline: false
-    };
 };

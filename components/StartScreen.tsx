@@ -4,12 +4,14 @@ import { Leaderboard } from './Leaderboard';
 import { HowToPlay } from './HowToPlay';
 import { getLeaderboard } from '../utils/leaderboard';
 import { LeaderboardEntry } from '../types';
+import { PlayerProgress } from '../utils/progression';
 
 interface StartScreenProps {
   onStart: () => void;
+  progress: PlayerProgress;
 }
 
-export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
+export const StartScreen: React.FC<StartScreenProps> = ({ onStart, progress }) => {
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
@@ -52,8 +54,15 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
           </h1>
         </div>
 
+        {/* Progress */}
+        <div className="bg-black bg-opacity-50 border border-yellow-400 rounded-lg p-3 text-left">
+          <p className="text-sm sm:text-base font-bold text-yellow-300">Season Progress</p>
+          <p className="text-xs sm:text-sm text-gray-200 mt-1">Level {progress.level} | Best {progress.bestScore} | Games {progress.totalGames}</p>
+          <p className="text-xs sm:text-sm text-gray-300">Achievements unlocked: {progress.achievements.length}</p>
+        </div>
+
         {/* Leaderboard */}
-        <Leaderboard entries={leaderboard} />
+        <Leaderboard entries={leaderboard.slice(0, 5)} maxEntries={5} />
 
         {/* Action Buttons */}
         <div className="space-y-3">
