@@ -1,9 +1,9 @@
 {
-  "version": "1.2.3",
-  "buildDate": "2025-10-12T23:40:00Z",
+  "version": "1.2.4",
+  "buildDate": "2026-07-23T16:30:00Z",
   "features": [
-    "MySQL leaderboard integration",
-    "Fixed collision detection",
-    "Eliminated API errors"
+    "Runtime crash fix for mobile controls",
+    "Forced startup version check and refresh",
+    "Improved leaderboard API fallback compatibility"
   ]
 }

@@ -22,7 +22,7 @@ import {
     submitLeaderboardScore,
   getLeaderboardPosition 
 } from './utils/leaderboard';
-import { checkForUpdates, forceUpdate, setCurrentVersion } from './utils/version';
+import { checkForUpdates, ensureLatestVersionOnLoad, forceUpdate, setCurrentVersion } from './utils/version';
 import { loadSettings, saveSettings, playGameSound } from './utils/settings';
 import {
     AchievementDefinition,
@@ -191,10 +191,6 @@ const App: React.FC = () => {
         setRabbitFacing(direction === 'left' ? 'left' : 'right');
         setRabbitX(rabbitXRef.current);
     }, [getRabbitHorizontalRange, runLevel, sceneWidth]);
-
-    const handleJumpPress = useCallback(() => {
-        handleJump();
-    }, [handleJump]);
 
     const resetGame = useCallback(() => {
         rabbitY.current = GROUND_HEIGHT;
@@ -381,8 +377,8 @@ const App: React.FC = () => {
         }
         
         e.preventDefault();
-        handleJumpPress();
-    }, [handleJumpPress]);
+        handleJump();
+    }, [handleJump]);
 
     const handleNameSubmit = useCallback(async (name: string) => {
         const updatedProgress = savePlayerName(name);
@@ -440,27 +436,36 @@ const App: React.FC = () => {
             setLeaderboard(leaderboard);
         };
 
-        const savedGhost = localStorage.getItem(GHOST_RUN_KEY);
-        if (savedGhost) {
-            try {
-                const parsed = JSON.parse(savedGhost) as GhostFrame[];
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    bestGhostRef.current = parsed;
-                    setGhostFrames(parsed);
-                }
-            } catch (error) {
-                console.warn('Failed to load ghost replay:', error);
+        const initializeApp = async () => {
+            const refreshed = await ensureLatestVersionOnLoad();
+            if (refreshed) {
+                return;
             }
-        }
 
-        const cookieName = getUsernameCookie();
-        if (cookieName && !loadProgress().playerName) {
-            const updated = savePlayerName(cookieName);
-            setPlayerProgress(updated);
-        }
-        
-        loadLeaderboard();
-        setCurrentVersion(); // Set current app version
+            const savedGhost = localStorage.getItem(GHOST_RUN_KEY);
+            if (savedGhost) {
+                try {
+                    const parsed = JSON.parse(savedGhost) as GhostFrame[];
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        bestGhostRef.current = parsed;
+                        setGhostFrames(parsed);
+                    }
+                } catch (error) {
+                    console.warn('Failed to load ghost replay:', error);
+                }
+            }
+
+            const cookieName = getUsernameCookie();
+            if (cookieName && !loadProgress().playerName) {
+                const updated = savePlayerName(cookieName);
+                setPlayerProgress(updated);
+            }
+
+            await loadLeaderboard();
+            setCurrentVersion(); // Set current app version
+        };
+
+        void initializeApp();
     }, []);
 
     useEffect(() => {
@@ -818,8 +823,8 @@ const App: React.FC = () => {
                             ◀
                         </button>
                         <button
-                            onTouchStart={(e) => { e.preventDefault(); handleJumpPress(); }}
-                            onClick={handleJumpPress}
+                            onTouchStart={(e) => { e.preventDefault(); handleJump(); }}
+                            onClick={() => handleJump()}
                             className="w-16 h-16 border-2 border-black text-white text-lg font-bold"
                             style={{ background: 'linear-gradient(180deg, #3c8c4d 0%, #1d6b2f 100%)', boxShadow: '0 4px 0 #0f3c1c' }}
                         >

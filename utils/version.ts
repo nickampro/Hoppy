@@ -1,5 +1,7 @@
+import { SETTINGS_STORAGE_KEY } from '../types/settings';
+
 // Version management for PWA cache busting
-export const APP_VERSION = '1.2.3'; // Update this with each release
+export const APP_VERSION = '1.2.4';
 
 export const checkForUpdates = async (): Promise<{
     updateAvailable: boolean;
@@ -8,7 +10,10 @@ export const checkForUpdates = async (): Promise<{
 }> => {
     try {
         // Check if there's a newer version available
-        const response = await fetch('/version.json?t=' + Date.now());
+        const response = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!response.ok) {
+            throw new Error(`Version check failed: ${response.status}`);
+        }
         const { version: latestVersion } = await response.json();
         
         const currentVersion = APP_VERSION; // Use actual app version, not localStorage
@@ -86,7 +91,9 @@ export const forceUpdate = async (): Promise<void> => {
         // Backup important data before clearing
         const leaderboardData = localStorage.getItem('hoppy-leaderboard');
         const highScoreData = localStorage.getItem('hoppyAvoidanceHighScore');
-        const settingsData = localStorage.getItem('hoppy-settings');
+        const settingsData = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        const progressData = localStorage.getItem('hoppy-player-progress');
+        const ghostData = localStorage.getItem('hoppy-best-run-ghost');
         
         // Clear all storage
         localStorage.clear();
@@ -102,8 +109,16 @@ export const forceUpdate = async (): Promise<void> => {
             console.log('💾 Preserved high score data');
         }
         if (settingsData) {
-            localStorage.setItem('hoppy-settings', settingsData);
+            localStorage.setItem(SETTINGS_STORAGE_KEY, settingsData);
             console.log('💾 Preserved settings data');
+        }
+        if (progressData) {
+            localStorage.setItem('hoppy-player-progress', progressData);
+            console.log('💾 Preserved progression data');
+        }
+        if (ghostData) {
+            localStorage.setItem('hoppy-best-run-ghost', ghostData);
+            console.log('💾 Preserved ghost replay data');
         }
         
         // Force clear any remaining cache by adding timestamp
@@ -116,4 +131,22 @@ export const forceUpdate = async (): Promise<void> => {
 
 export const setCurrentVersion = (): void => {
     localStorage.setItem('app-version', APP_VERSION);
+};
+
+export const ensureLatestVersionOnLoad = async (): Promise<boolean> => {
+    const refreshGuardKey = 'hoppy-version-refresh-attempted';
+    if (sessionStorage.getItem(refreshGuardKey) === '1') {
+        return false;
+    }
+
+    const result = await checkForUpdates();
+    if (!result.updateAvailable) {
+        sessionStorage.removeItem(refreshGuardKey);
+        return false;
+    }
+
+    sessionStorage.setItem(refreshGuardKey, '1');
+    await forceUpdate();
+    window.location.replace(window.location.pathname + '?v=' + Date.now());
+    return true;
 };
