@@ -11,24 +11,30 @@ const getApiBaseUrlCandidates = (): string[] => {
     }
 
     const candidates = new Set<string>();
+    const hostname = window.location.hostname;
 
     if (configuredBaseUrl) {
         candidates.add(normalizeBaseUrl(configuredBaseUrl));
     }
 
-    candidates.add(`${window.location.origin}/api`);
-
-    const hostname = window.location.hostname;
     if (hostname.startsWith('hoppy.')) {
         candidates.add(`https://hoppy-api.${hostname.slice('hoppy.'.length)}/api`);
     }
 
     candidates.add('https://hoppy-api.caprover.nickam.cc/api');
 
+    // Keep same-origin API last because some frontends return index.html for unknown /api paths.
+    candidates.add(`${window.location.origin}/api`);
+
     return Array.from(candidates);
 };
 
 const API_BASE_URL_CANDIDATES = getApiBaseUrlCandidates();
+
+const isLikelyJsonApiResponse = (response: Response): boolean => {
+    const contentType = response.headers.get('content-type') || '';
+    return contentType.toLowerCase().includes('application/json');
+};
 
 const fetchFromApiCandidates = async (path: string, init?: RequestInit): Promise<Response> => {
     let lastError: Error | null = null;
@@ -36,11 +42,18 @@ const fetchFromApiCandidates = async (path: string, init?: RequestInit): Promise
     for (const baseUrl of API_BASE_URL_CANDIDATES) {
         try {
             const response = await fetch(`${baseUrl}${path}`, init);
+
             if (response.ok) {
+                if (!isLikelyJsonApiResponse(response)) {
+                    continue;
+                }
                 return response;
             }
 
             if (response.status < 500 && response.status !== 404) {
+                if (!isLikelyJsonApiResponse(response)) {
+                    continue;
+                }
                 return response;
             }
         } catch (error) {

@@ -96,8 +96,29 @@ async function getOrCreateUser(deviceId) {
 // Routes
 
 // Health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+    try {
+        const [pingRows] = await pool.execute('SELECT 1 AS ok');
+        const [scoreRows] = await pool.execute('SELECT COUNT(*) AS total_scores FROM scores');
+        const totalScores = Array.isArray(scoreRows) && scoreRows.length > 0 ? scoreRows[0].total_scores : 0;
+
+        res.json({
+            status: 'OK',
+            timestamp: new Date().toISOString(),
+            db: {
+                connected: Array.isArray(pingRows) && pingRows.length > 0,
+                database: dbConfig.database,
+                totalScores,
+            },
+        });
+    } catch (error) {
+        console.error('Health check failed:', error);
+        res.status(500).json({
+            status: 'ERROR',
+            timestamp: new Date().toISOString(),
+            error: 'Database connection failed',
+        });
+    }
 });
 
 // Get global leaderboard
