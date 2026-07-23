@@ -44,7 +44,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, progress }) =
       className="absolute inset-0 bg-black bg-opacity-50 flex flex-col justify-center items-center text-white text-center z-20 p-4 overflow-y-auto"
       onClick={(e) => e.stopPropagation()} // Prevent click bubbling to parent
     >
-      <div className="w-full max-w-lg lg:max-w-xl space-y-6"
+       <div className="w-full max-w-[760px] max-h-[88vh] overflow-y-auto space-y-6 pr-1"
            onClick={(e) => e.stopPropagation()} // Extra protection for the content area
       >
         {/* Title */}

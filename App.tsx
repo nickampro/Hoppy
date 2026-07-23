@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  GAME_WIDTH, GAME_HEIGHT, GROUND_HEIGHT, RABBIT_WIDTH, RABBIT_HEIGHT,
-  RABBIT_INITIAL_X, RABBIT_JUMP_VELOCITY, GRAVITY, TREE_WIDTH,
+    GROUND_HEIGHT, RABBIT_WIDTH, RABBIT_HEIGHT,
+    RABBIT_INITIAL_X, GRAVITY, TREE_WIDTH,
   MIN_TREE_HEIGHT, MAX_TREE_HEIGHT, LATE_GAME_MIN_HEIGHT, LATE_GAME_MAX_HEIGHT,
     INITIAL_GAME_SPEED, GAME_SPEED_INCREMENT, HIGH_SCORE_KEY,
-    RABBIT_MOVE_SPEED, RABBIT_MIN_X, RABBIT_MAX_X, ROCK_WIDTH, RIVER_WIDTH
+        RABBIT_MIN_X, ROCK_WIDTH, RIVER_WIDTH
 } from './constants';
 import { type Tree as TreeType, GameStatus, LeaderboardEntry } from './types';
 import { GameSettings } from './types/settings';
@@ -39,6 +39,13 @@ interface GhostFrame {
     y: number;
 }
 
+interface RabbitLifeStats {
+    ageLabel: 'Baby' | 'Young' | 'Adult' | 'Parent' | 'Elder' | 'Ancestor';
+    scale: number;
+    jumpVelocity: number;
+    moveSpeed: number;
+}
+
 const GHOST_RUN_KEY = 'hoppy-best-run-ghost';
 const USERNAME_COOKIE_KEY = 'hoppyPlayerName';
 
@@ -57,6 +64,54 @@ const getUsernameCookie = (): string => {
     return decodeURIComponent(match.split('=')[1] || '');
 };
 
+const getFamilyLifeCapacity = (level: number): number => {
+    if (level >= 65) return 5;
+    if (level >= 50) return 4;
+    if (level >= 35) return 3;
+    if (level >= 20) return 2;
+    return 1;
+};
+
+const getRabbitLifeStats = (level: number): RabbitLifeStats => {
+    if (level < 20) {
+        const t = level / 20;
+        return {
+            ageLabel: level < 8 ? 'Baby' : 'Young',
+            scale: 0.62 + t * 0.33,
+            jumpVelocity: 17 + t * 4,
+            moveSpeed: 3.7 + t * 1.3,
+        };
+    }
+
+    if (level < 65) {
+        const t = (level - 20) / 45;
+        return {
+            ageLabel: level < 40 ? 'Adult' : 'Parent',
+            scale: 0.95 + t * 0.2,
+            jumpVelocity: 21 + t * 2,
+            moveSpeed: 5 + t * 1.2,
+        };
+    }
+
+    if (level < 90) {
+        const t = (level - 65) / 25;
+        return {
+            ageLabel: 'Elder',
+            scale: 1.15 - t * 0.17,
+            jumpVelocity: 22 - t * 7,
+            moveSpeed: 6 - t * 2.2,
+        };
+    }
+
+    const t = Math.min((level - 90) / 10, 1);
+    return {
+        ageLabel: 'Ancestor',
+        scale: 0.98 - t * 0.1,
+        jumpVelocity: 15 - t * 4,
+        moveSpeed: 3.8 - t * 1.4,
+    };
+};
+
 const App: React.FC = () => {
     const getInitialHighScore = (): number => {
         const savedScore = localStorage.getItem(HIGH_SCORE_KEY);
@@ -66,6 +121,8 @@ const App: React.FC = () => {
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Start);
     const [score, setScore] = useState(0);
     const [highScore, setHighScore] = useState(getInitialHighScore);
+    const [sceneWidth, setSceneWidth] = useState(window.innerWidth);
+    const [sceneHeight, setSceneHeight] = useState(window.innerHeight);
     const [renderedRabbitY, setRenderedRabbitY] = useState(GROUND_HEIGHT);
     const [renderedTrees, setRenderedTrees] = useState<TreeType[]>([]);
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -92,6 +149,11 @@ const App: React.FC = () => {
     const [ghostFrames, setGhostFrames] = useState<GhostFrame[]>([]);
     const [ghostFrameIndex, setGhostFrameIndex] = useState(0);
     const [showGhostHint, setShowGhostHint] = useState(false);
+    const [rabbitScale, setRabbitScale] = useState(0.62);
+    const [rabbitAgeLabel, setRabbitAgeLabel] = useState<RabbitLifeStats['ageLabel']>('Baby');
+    const [familyLifeCapacity, setFamilyLifeCapacity] = useState(1);
+    const [livesRemaining, setLivesRemaining] = useState(1);
+    const [isHitFlash, setIsHitFlash] = useState(false);
 
     const rabbitXRef = useRef(RABBIT_INITIAL_X);
     const rabbitY = useRef(GROUND_HEIGHT);
@@ -107,6 +169,7 @@ const App: React.FC = () => {
     const moveRightPressed = useRef(false);
     const runGhostFrames = useRef<GhostFrame[]>([]);
     const bestGhostRef = useRef<GhostFrame[]>([]);
+    const invulnerableUntil = useRef(0);
 
     const resetGame = useCallback(() => {
         rabbitY.current = GROUND_HEIGHT;
@@ -131,6 +194,11 @@ const App: React.FC = () => {
         setRabbitX(RABBIT_INITIAL_X);
         setRabbitFacing('right');
         setGhostFrameIndex(0);
+        setRabbitScale(0.62);
+        setRabbitAgeLabel('Baby');
+        setFamilyLifeCapacity(1);
+        setLivesRemaining(1);
+        setIsHitFlash(false);
         setRenderedRabbitY(GROUND_HEIGHT);
         setRenderedTrees([]);
     }, []);
@@ -156,7 +224,7 @@ const App: React.FC = () => {
                 return prev - 1;
             });
         }, 1000);
-    }, [resetGame]);
+    }, [ghostEnabled, resetGame]);
 
     const endGame = useCallback(async () => {
     // Set the time when game ended to prevent immediate restarts
@@ -215,6 +283,7 @@ const App: React.FC = () => {
     }, [highScore]);
 
     const handleJump = useCallback((e?: KeyboardEvent) => {
+        const rabbitLife = getRabbitLifeStats(runLevel);
         if (!e || e.code === 'ArrowUp' || e.code === 'Space') {
             e?.preventDefault();
             if (gameStatus === GameStatus.Playing) {
@@ -225,7 +294,7 @@ const App: React.FC = () => {
                                     rabbitY.current > GROUND_HEIGHT;
                 
                 if (canNormalJump || canDoubleJump) {
-                    rabbitVelocityY.current = RABBIT_JUMP_VELOCITY;
+                    rabbitVelocityY.current = rabbitLife.jumpVelocity;
                     playGameSound('sounds/jump.wav', settings);
                     
                     // Mark double jump as used if this was a mid-air jump
@@ -247,7 +316,7 @@ const App: React.FC = () => {
             }
             // Note: NameEntry state is handled by its own component, no jump action needed
         }
-    }, [gameStatus, startGame, settings, gameOverTime]);
+    }, [gameStatus, startGame, settings, gameOverTime, runLevel]);
 
     const handleMovementDown = useCallback((e: KeyboardEvent) => {
         if (gameStatus !== GameStatus.Playing) return;
@@ -274,6 +343,8 @@ const App: React.FC = () => {
     }, []);
 
     const handleTouchJump = useCallback((e: TouchEvent) => {
+        const rabbitLife = getRabbitLifeStats(runLevel);
+        const currentMaxRabbitX = Math.max(RABBIT_MIN_X, sceneWidth - RABBIT_WIDTH * rabbitLife.scale - 30);
         // Don't handle touches on buttons, inputs, or other interactive elements
         const target = e.target as HTMLElement;
         if (target.tagName === 'BUTTON' || 
@@ -291,21 +362,21 @@ const App: React.FC = () => {
         const viewportWidth = window.innerWidth;
 
         if (touch.clientX < viewportWidth * 0.33) {
-            rabbitXRef.current = Math.max(RABBIT_MIN_X, rabbitXRef.current - 34);
+            rabbitXRef.current = Math.max(RABBIT_MIN_X, rabbitXRef.current - rabbitLife.moveSpeed * 7);
             setRabbitFacing('left');
             setRabbitX(rabbitXRef.current);
             return;
         }
 
         if (touch.clientX > viewportWidth * 0.67) {
-            rabbitXRef.current = Math.min(RABBIT_MAX_X, rabbitXRef.current + 34);
+            rabbitXRef.current = Math.min(currentMaxRabbitX, rabbitXRef.current + rabbitLife.moveSpeed * 7);
             setRabbitFacing('right');
             setRabbitX(rabbitXRef.current);
             return;
         }
 
         handleJump();
-    }, [handleJump]);
+    }, [handleJump, runLevel, sceneWidth]);
 
     const handleNameSubmit = useCallback(async (name: string) => {
         const updatedProgress = savePlayerName(name);
@@ -386,6 +457,17 @@ const App: React.FC = () => {
         setCurrentVersion(); // Set current app version
     }, []);
 
+    useEffect(() => {
+        const handleResize = () => {
+            setSceneWidth(Math.max(360, window.innerWidth));
+            setSceneHeight(Math.max(560, window.innerHeight));
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     // Check for updates periodically
     useEffect(() => {
         const checkUpdates = async () => {
@@ -443,14 +525,27 @@ const App: React.FC = () => {
     const gameLoop = useCallback((timestamp: number) => {
         if (gameStatus !== GameStatus.Playing || gameIsPaused || isCountingDown) return;
 
+        const rabbitLife = getRabbitLifeStats(runLevel);
+        const currentMaxRabbitX = Math.max(RABBIT_MIN_X, sceneWidth - RABBIT_WIDTH * rabbitLife.scale - 30);
+
+        setRabbitScale(rabbitLife.scale);
+        setRabbitAgeLabel(rabbitLife.ageLabel);
+
+        const nextCapacity = getFamilyLifeCapacity(runLevel);
+        if (nextCapacity > familyLifeCapacity) {
+            const gain = nextCapacity - familyLifeCapacity;
+            setFamilyLifeCapacity(nextCapacity);
+            setLivesRemaining(prev => prev + gain);
+        }
+
         // Rabbit physics
         rabbitVelocityY.current += GRAVITY;
         rabbitY.current += rabbitVelocityY.current;
 
         if (moveLeftPressed.current && !moveRightPressed.current) {
-            rabbitXRef.current = Math.max(RABBIT_MIN_X, rabbitXRef.current - RABBIT_MOVE_SPEED);
+            rabbitXRef.current = Math.max(RABBIT_MIN_X, rabbitXRef.current - rabbitLife.moveSpeed);
         } else if (moveRightPressed.current && !moveLeftPressed.current) {
-            rabbitXRef.current = Math.min(RABBIT_MAX_X, rabbitXRef.current + RABBIT_MOVE_SPEED);
+            rabbitXRef.current = Math.min(currentMaxRabbitX, rabbitXRef.current + rabbitLife.moveSpeed);
         }
 
         if (rabbitY.current < GROUND_HEIGHT) {
@@ -491,12 +586,12 @@ const App: React.FC = () => {
         
         trees.current = trees.current.filter(tree => tree.x > -Math.max(tree.width, TREE_WIDTH));
 
-        const spawnInterval = Math.max(460, 860 - (runLevel - 1) * 35);
+        const spawnInterval = Math.max(560, 970 - (runLevel - 1) * 30);
         if (timestamp - lastTreeTime.current > spawnInterval) {
             const lastTree = trees.current[trees.current.length - 1];
-            if (!lastTree || lastTree.x < GAME_WIDTH - (250 + Math.random() * 250) ) {
+            if (!lastTree || lastTree.x < sceneWidth - (220 + Math.random() * 260) ) {
                 // Progressive difficulty: start with small trees, gradually increase
-            const difficultyProgress = Math.min(newScore / 35, 1);
+                const difficultyProgress = Math.min(newScore / 35, 1);
                 const currentMinHeight = MIN_TREE_HEIGHT + (LATE_GAME_MIN_HEIGHT - MIN_TREE_HEIGHT) * difficultyProgress;
                 const currentMaxHeight = MAX_TREE_HEIGHT + (LATE_GAME_MAX_HEIGHT - MAX_TREE_HEIGHT) * difficultyProgress;
 
@@ -509,7 +604,7 @@ const App: React.FC = () => {
                 // Spawn trees well off-screen to ensure smooth entry on all screen sizes
                 trees.current.push({
                     id: Date.now(),
-                    x: GAME_WIDTH + obstacleWidth + 50,
+                    x: sceneWidth + obstacleWidth + 50,
                     width: obstacleWidth,
                     type: obstacleType,
                     height: newHeight,
@@ -519,7 +614,35 @@ const App: React.FC = () => {
             }
         }
         
-        const rabbitRect = { x: rabbitXRef.current, y: rabbitY.current, width: RABBIT_WIDTH - 10, height: RABBIT_HEIGHT - 10 };
+        const rabbitRect = {
+            x: rabbitXRef.current,
+            y: rabbitY.current,
+            width: RABBIT_WIDTH * rabbitLife.scale - 8,
+            height: RABBIT_HEIGHT * rabbitLife.scale - 8
+        };
+
+        const processHit = (id: number): boolean => {
+            if (timestamp < invulnerableUntil.current) {
+                return false;
+            }
+
+            if (livesRemaining > 1) {
+                setLivesRemaining(prev => Math.max(1, prev - 1));
+                setIsHitFlash(true);
+                setTimeout(() => setIsHitFlash(false), 250);
+                currentStreak.current = 0;
+                setStreak(0);
+                setScoreMultiplier(1);
+                invulnerableUntil.current = timestamp + 1200;
+                trees.current = trees.current.filter(obstacle => obstacle.id !== id);
+                return false;
+            }
+
+            saveGhostIfBest(newScore);
+            void endGame();
+            return true;
+        };
+
         for (const tree of trees.current) {
             const treeRect = { x: tree.x, y: GROUND_HEIGHT, width: tree.width, height: tree.height };
             
@@ -528,9 +651,7 @@ const App: React.FC = () => {
                 const feetInsideRiver = rabbitRect.x + rabbitRect.width * 0.6 > treeRect.x && rabbitRect.x + rabbitRect.width * 0.4 < treeRect.x + treeRect.width;
                 const fellIntoRiver = feetInsideRiver && rabbitFeetBottom <= GROUND_HEIGHT + 18;
                 if (fellIntoRiver) {
-                    saveGhostIfBest(newScore);
-                    void endGame();
-                    return;
+                    if (processHit(tree.id)) return;
                 }
                 continue;
             }
@@ -541,9 +662,7 @@ const App: React.FC = () => {
                 rabbitRect.y < treeRect.y + treeRect.height &&
                 rabbitRect.y + rabbitRect.height > treeRect.y
             ) {
-                saveGhostIfBest(newScore);
-                void endGame();
-                return;
+                if (processHit(tree.id)) return;
             }
         }
 
@@ -557,7 +676,21 @@ const App: React.FC = () => {
         setRenderedTrees([...trees.current]);
 
         gameLoopId.current = requestAnimationFrame(gameLoop);
-    }, [score, endGame, gameStatus, gameIsPaused, ghostEnabled, ghostFrames.length, isCountingDown, runLevel, saveGhostIfBest, settings]);
+    }, [
+        score,
+        endGame,
+        gameStatus,
+        gameIsPaused,
+        ghostEnabled,
+        ghostFrames.length,
+        isCountingDown,
+        runLevel,
+        saveGhostIfBest,
+        settings,
+        sceneWidth,
+        familyLifeCapacity,
+        livesRemaining,
+    ]);
 
     useEffect(() => {
         if (gameStatus === GameStatus.Playing) {
@@ -587,10 +720,10 @@ const App: React.FC = () => {
             <div
                 className="relative bg-[#87CEEB] overflow-hidden border-[6px] border-[#1f3d5a]"
                 style={{ 
-                    width: 'min(100vw, calc(100vh * 1.3333333))',
-                    height: 'min(100vh, calc(100vw / 1.3333333))',
-                    maxWidth: `${GAME_WIDTH}px`,
-                    maxHeight: `${GAME_HEIGHT}px`,
+                    width: '100vw',
+                    height: '100vh',
+                    minWidth: '360px',
+                    minHeight: '560px',
                     boxShadow: '0 0 0 4px #0e2236, 0 12px 0 #0a1824'
                 }}
             >
@@ -641,6 +774,8 @@ const App: React.FC = () => {
                     streak={streak}
                     multiplier={scoreMultiplier}
                     tierName={getTierName(score)}
+                    ageLabel={rabbitAgeLabel}
+                    lives={livesRemaining}
                 />
                 
                 {/* Mobile touch instruction */}
@@ -655,6 +790,21 @@ const App: React.FC = () => {
                 {showGhostHint && gameStatus !== GameStatus.Playing && (
                     <div className="absolute top-14 left-3 bg-[#143a58] border-2 border-black text-[#d4efff] px-2 py-1 text-[10px] z-30">
                         Ghost replay loaded
+                    </div>
+                )}
+
+                {livesRemaining > 1 && (
+                    <div className="absolute left-3 bottom-[92px] z-20 flex gap-2">
+                        {Array.from({ length: livesRemaining - 1 }, (_, index) => (
+                            <Rabbit
+                                key={`follower-${index}`}
+                                x={Math.max(8, rabbitX - (index + 1) * 26)}
+                                y={GROUND_HEIGHT}
+                                scale={Math.max(0.46, rabbitScale - 0.16)}
+                                isGhost={true}
+                                facing={rabbitFacing}
+                            />
+                        ))}
                     </div>
                 )}
 
@@ -690,9 +840,17 @@ const App: React.FC = () => {
                         y={ghostFrames[ghostFrameIndex].y}
                         isGhost={true}
                         facing={'right'}
+                        scale={rabbitScale}
                     />
                 )}
-                <Rabbit x={rabbitX} y={renderedRabbitY} isGameOver={gameStatus === GameStatus.GameOver} facing={rabbitFacing} />
+                <Rabbit
+                    x={rabbitX}
+                    y={renderedRabbitY}
+                    isGameOver={gameStatus === GameStatus.GameOver}
+                    facing={rabbitFacing}
+                    scale={rabbitScale}
+                    isGhost={isHitFlash}
+                />
                 {renderedTrees.map(tree => (
                     <Tree key={tree.id} x={tree.x} height={tree.height} width={tree.width} type={tree.type} />
                 ))}

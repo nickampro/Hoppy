@@ -41,7 +41,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
       className="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-center items-center text-white text-center z-20 p-4 overflow-y-auto"
       onClick={(e) => e.stopPropagation()} // Prevent click bubbling to parent
     >
-      <div className="w-full max-w-md space-y-4"
+       <div className="w-full max-w-[760px] max-h-[88vh] overflow-y-auto space-y-4 pr-1"
            onClick={(e) => e.stopPropagation()} // Extra protection for the content area
       >
         {/* Game Over Header */}

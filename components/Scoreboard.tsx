@@ -8,6 +8,8 @@ interface ScoreboardProps {
   streak?: number;
   multiplier?: number;
   tierName?: string;
+  ageLabel?: string;
+  lives?: number;
 }
 
 const formatScore = (score: number) => score.toString().padStart(4, '0');
@@ -18,7 +20,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({
   level = 1,
   streak = 0,
   multiplier = 1,
-  tierName = 'Rookie'
+  tierName = 'Rookie',
+  ageLabel = 'Baby',
+  lives = 1,
 }) => {
   return (
     <div className="absolute top-2 left-2 right-14 sm:right-16 px-1 sm:px-2 text-white text-[11px] sm:text-base z-10" style={{ textShadow: '2px 2px 0 #000' }}>
@@ -29,6 +33,10 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({
       <div className="mt-1 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[10px] sm:text-xs text-yellow-100">
         <span>LEVEL {level} {tierName}</span>
         <span>STREAK {streak} x{multiplier}</span>
+      </div>
+      <div className="mt-1 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[10px] sm:text-xs text-[#ffe9b5]">
+        <span>AGE {ageLabel}</span>
+        <span>LIVES {lives}</span>
       </div>
     </div>
   );

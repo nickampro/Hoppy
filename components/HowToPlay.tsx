@@ -45,7 +45,7 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ onClose }) => {
 
   return (
     <div className="absolute inset-0 bg-black bg-opacity-90 flex flex-col justify-center items-center text-white z-25 p-4">
-      <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full border-2 border-blue-500">
+      <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full max-h-[88vh] overflow-y-auto border-2 border-blue-500">
         {/* Header */}
         <div className="text-center mb-6">
           <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-blue-400">
