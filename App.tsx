@@ -315,8 +315,8 @@ const App: React.FC = () => {
 
     useEffect(() => {
         // One-time migration to set ghost replay off by default for this release.
-        if (settings.version !== '1.2.6' && settings.ghostReplayEnabled !== false) {
-            const migratedSettings = { ...settings, ghostReplayEnabled: false, version: '1.2.6' };
+        if (settings.version !== '1.2.7' && settings.ghostReplayEnabled !== false) {
+            const migratedSettings = { ...settings, ghostReplayEnabled: false, version: '1.2.7' };
             setSettings(migratedSettings);
             setGhostEnabled(false);
             saveSettings(migratedSettings);

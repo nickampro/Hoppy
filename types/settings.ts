@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   difficulty: 'normal',
   soundEnabled: true,
   ghostReplayEnabled: false,
-  version: '1.1.0'
+  version: '1.2.7'
 };
 
 export const SETTINGS_STORAGE_KEY = 'hoppy-game-settings';

@@ -1,9 +1,9 @@
 {
-  "version": "1.2.6",
-  "buildDate": "2026-07-23T18:30:00Z",
+  "version": "1.2.7",
+  "buildDate": "2026-07-23T18:40:00Z",
   "features": [
-    "Ghost replay now ends at the recorded death point",
-    "Stronger level-up announcement pause and clearer run-age messaging",
-    "Rabbit visual refresh with cleaner head/eyes and 3D-like turn effect"
+    "Global leaderboard API fallback now rejects non-JSON responses",
+    "Improved API host resolution for mobile leaderboard consistency",
+    "Health endpoint now reports live database connectivity and score count"
   ]
 }
