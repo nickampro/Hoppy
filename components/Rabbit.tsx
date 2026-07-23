@@ -19,7 +19,11 @@ export const Rabbit: React.FC<RabbitProps> = ({
   facing = 'right',
   scale = 1,
 }) => {
-  const transform = `${isGameOver ? 'rotate(-65deg) ' : ''}${facing === 'left' ? 'scaleX(-1) ' : ''}scale(${scale})`.trim();
+  const facingLeft = facing === 'left';
+  const directionTilt = facingLeft
+    ? 'perspective(180px) rotateY(18deg) rotateZ(-2deg)'
+    : 'perspective(180px) rotateY(-8deg) rotateZ(0deg)';
+  const transform = `${isGameOver ? 'rotate(-65deg) ' : ''}${directionTilt} scale(${scale})`.trim();
 
   return (
     <div
@@ -43,8 +47,10 @@ export const Rabbit: React.FC<RabbitProps> = ({
       <div className="absolute w-[9px] h-[16px] bg-[#fff9ef] border-2 border-black rounded-t-[6px]" style={{ top: '4px', right: '1px' }}></div>
       <div className="absolute w-[4px] h-[11px] bg-[#ffb6cf] rounded-t-[2px]" style={{ top: '2px', right: '13px' }}></div>
       <div className="absolute w-[4px] h-[8px] bg-[#ffb6cf] rounded-t-[2px]" style={{ top: '7px', right: '3px' }}></div>
-      <div className="absolute w-[5px] h-[5px] bg-black rounded-full" style={{ top: '18px', right: '7px' }}></div>
-      <div className="absolute w-[6px] h-[6px] bg-[#ff8aa8] rounded-full" style={{ top: '25px', right: '6px' }}></div>
+      <div className="absolute w-[5px] h-[5px] bg-black rounded-full" style={{ top: '18px', right: facingLeft ? '11px' : '7px' }}></div>
+      <div className="absolute w-[3px] h-[3px] bg-white rounded-full" style={{ top: '19px', right: facingLeft ? '12px' : '8px' }}></div>
+      <div className="absolute w-[5px] h-[4px] bg-[#ff8aa8] rounded-full" style={{ top: '25px', right: facingLeft ? '9px' : '6px' }}></div>
+      <div className="absolute w-[4px] h-[2px] bg-black" style={{ top: '27px', right: facingLeft ? '12px' : '9px' }}></div>
       <div className="absolute w-[10px] h-[8px] bg-[#fff9ef] border-2 border-black rounded-[4px]" style={{ bottom: '0px', left: '14px' }}></div>
       <div className="absolute w-[10px] h-[8px] bg-[#fff9ef] border-2 border-black rounded-[4px]" style={{ bottom: '0px', left: '28px' }}></div>
       <div className="absolute w-[10px] h-[10px] bg-white border-2 border-black rounded-full" style={{ bottom: '15px', left: '0px' }}></div>

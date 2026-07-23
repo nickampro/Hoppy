@@ -40,7 +40,7 @@ interface GhostFrame {
 }
 
 interface RabbitLifeStats {
-    ageLabel: 'Baby' | 'Young' | 'Adult' | 'Parent' | 'Elder' | 'Ancestor';
+    ageLabel: 'Baby' | 'Child' | 'Teen' | 'Young Adult' | 'Adult' | 'Parent' | 'Elder' | 'Ancestor';
     scale: number;
     jumpVelocity: number;
     moveSpeed: number;
@@ -73,23 +73,63 @@ const getFamilyLifeCapacity = (level: number): number => {
 };
 
 const getRabbitLifeStats = (level: number): RabbitLifeStats => {
-    if (level < 20) {
-        const t = level / 20;
+    if (level < 3) {
+        const t = Math.max(0, (level - 1) / 2);
         return {
-            ageLabel: level < 8 ? 'Baby' : 'Young',
-            scale: 0.62 + t * 0.33,
-            jumpVelocity: 18 + t * 4,
-            moveSpeed: 3.2 + t * 1.2,
+            ageLabel: 'Baby',
+            scale: 0.58 + t * 0.12,
+            jumpVelocity: 16.5 + t * 1.5,
+            moveSpeed: 3 + t * 0.8,
+        };
+    }
+
+    if (level < 5) {
+        const t = (level - 3) / 2;
+        return {
+            ageLabel: 'Child',
+            scale: 0.72 + t * 0.1,
+            jumpVelocity: 18.5 + t * 0.8,
+            moveSpeed: 4 + t * 0.4,
+        };
+    }
+
+    if (level < 7) {
+        const t = (level - 5) / 2;
+        return {
+            ageLabel: 'Teen',
+            scale: 0.84 + t * 0.08,
+            jumpVelocity: 19.4 + t * 0.9,
+            moveSpeed: 4.4 + t * 0.4,
+        };
+    }
+
+    if (level < 10) {
+        const t = (level - 7) / 3;
+        return {
+            ageLabel: 'Young Adult',
+            scale: 0.93 + t * 0.08,
+            jumpVelocity: 20.5 + t * 1,
+            moveSpeed: 4.8 + t * 0.6,
+        };
+    }
+
+    if (level < 14) {
+        const t = (level - 10) / 4;
+        return {
+            ageLabel: 'Adult',
+            scale: 1.02 + t * 0.06,
+            jumpVelocity: 21.5 + t * 0.8,
+            moveSpeed: 5.4 + t * 0.4,
         };
     }
 
     if (level < 65) {
-        const t = (level - 20) / 45;
+        const t = (level - 14) / 51;
         return {
-            ageLabel: level < 40 ? 'Adult' : 'Parent',
-            scale: 0.95 + t * 0.2,
-            jumpVelocity: 21 + t * 2,
-            moveSpeed: 5 + t * 1.2,
+            ageLabel: 'Parent',
+            scale: 1.08 + t * 0.1,
+            jumpVelocity: 22.3 + t * 1.1,
+            moveSpeed: 5.8 + t * 0.7,
         };
     }
 
@@ -97,18 +137,18 @@ const getRabbitLifeStats = (level: number): RabbitLifeStats => {
         const t = (level - 65) / 25;
         return {
             ageLabel: 'Elder',
-            scale: 1.15 - t * 0.17,
-            jumpVelocity: 22 - t * 7,
-            moveSpeed: 6 - t * 2.2,
+            scale: 1.15 - t * 0.15,
+            jumpVelocity: 20 - t * 7,
+            moveSpeed: 5.6 - t * 1.9,
         };
     }
 
     const t = Math.min((level - 90) / 10, 1);
     return {
         ageLabel: 'Ancestor',
-        scale: 0.98 - t * 0.1,
-        jumpVelocity: 15 - t * 4,
-        moveSpeed: 3.8 - t * 1.4,
+        scale: 1 - t * 0.1,
+        jumpVelocity: 12 - t * 4,
+        moveSpeed: 3.6 - t * 1,
     };
 };
 
@@ -154,6 +194,7 @@ const App: React.FC = () => {
     const [familyLifeCapacity, setFamilyLifeCapacity] = useState(1);
     const [livesRemaining, setLivesRemaining] = useState(1);
     const [isHitFlash, setIsHitFlash] = useState(false);
+    const [levelUpNotice, setLevelUpNotice] = useState<string | null>(null);
 
     const rabbitXRef = useRef(RABBIT_INITIAL_X);
     const rabbitY = useRef(GROUND_HEIGHT);
@@ -170,6 +211,7 @@ const App: React.FC = () => {
     const runGhostFrames = useRef<GhostFrame[]>([]);
     const bestGhostRef = useRef<GhostFrame[]>([]);
     const invulnerableUntil = useRef(0);
+    const levelPauseUntil = useRef(0);
 
     const getRabbitHorizontalRange = useCallback((level: number, width: number) => {
         const rabbitLife = getRabbitLifeStats(level);
@@ -220,6 +262,8 @@ const App: React.FC = () => {
         setFamilyLifeCapacity(1);
         setLivesRemaining(1);
         setIsHitFlash(false);
+        setLevelUpNotice(null);
+        levelPauseUntil.current = 0;
         setRenderedRabbitY(GROUND_HEIGHT);
         setRenderedTrees([]);
     }, []);
@@ -534,6 +578,11 @@ const App: React.FC = () => {
     const gameLoop = useCallback((timestamp: number) => {
         if (gameStatus !== GameStatus.Playing || gameIsPaused || isCountingDown) return;
 
+        if (levelPauseUntil.current > timestamp) {
+            gameLoopId.current = requestAnimationFrame(gameLoop);
+            return;
+        }
+
         const { minX, maxX, baseX, rabbitLife } = getRabbitHorizontalRange(runLevel, sceneWidth);
 
         setRabbitScale(rabbitLife.scale);
@@ -596,6 +645,13 @@ const App: React.FC = () => {
 
             const nextRunLevel = Math.floor(newScore / 15) + 1;
 
+            if (nextRunLevel > runLevel) {
+                const nextLife = getRabbitLifeStats(nextRunLevel);
+                setLevelUpNotice(`LEVEL ${nextRunLevel} - ${nextLife.ageLabel}`);
+                levelPauseUntil.current = timestamp + 950;
+                setTimeout(() => setLevelUpNotice(null), 950);
+            }
+
             setStreak(currentStreak.current);
             setScoreMultiplier(comboMultiplier);
             setRunLevel(nextRunLevel);
@@ -634,10 +690,10 @@ const App: React.FC = () => {
         }
         
         const rabbitRect = {
-            x: rabbitXRef.current,
-            y: rabbitY.current,
-            width: RABBIT_WIDTH * rabbitLife.scale - 8,
-            height: RABBIT_HEIGHT * rabbitLife.scale - 8
+            x: rabbitXRef.current + 6,
+            y: rabbitY.current + 4,
+            width: Math.max(14, RABBIT_WIDTH * rabbitLife.scale - 16),
+            height: Math.max(14, RABBIT_HEIGHT * rabbitLife.scale - 14)
         };
 
         const processHit = (id: number): boolean => {
@@ -663,12 +719,19 @@ const App: React.FC = () => {
         };
 
         for (const tree of trees.current) {
-            const treeRect = { x: tree.x, y: GROUND_HEIGHT, width: tree.width, height: tree.height };
+            const treePaddingX = tree.type === 'rock' ? 8 : 10;
+            const treePaddingY = tree.type === 'rock' ? 6 : 8;
+            const treeRect = {
+                x: tree.x + treePaddingX,
+                y: GROUND_HEIGHT + treePaddingY,
+                width: Math.max(10, tree.width - treePaddingX * 2),
+                height: Math.max(10, tree.height - treePaddingY)
+            };
             
             if (tree.type === 'river') {
                 const rabbitFeetBottom = rabbitRect.y;
-                const feetInsideRiver = rabbitRect.x + rabbitRect.width * 0.6 > treeRect.x && rabbitRect.x + rabbitRect.width * 0.4 < treeRect.x + treeRect.width;
-                const fellIntoRiver = feetInsideRiver && rabbitFeetBottom <= GROUND_HEIGHT + 18;
+                const feetInsideRiver = rabbitRect.x + rabbitRect.width * 0.66 > treeRect.x && rabbitRect.x + rabbitRect.width * 0.34 < treeRect.x + treeRect.width;
+                const fellIntoRiver = feetInsideRiver && rabbitFeetBottom <= GROUND_HEIGHT + 10;
                 if (fellIntoRiver) {
                     if (processHit(tree.id)) return;
                 }
@@ -801,7 +864,18 @@ const App: React.FC = () => {
                     tierName={getTierName(score)}
                     ageLabel={rabbitAgeLabel}
                     lives={livesRemaining}
+                    nextLevelScore={runLevel * 15}
+                    seasonLevel={playerProgress.level}
                 />
+
+                {levelUpNotice && gameStatus === GameStatus.Playing && (
+                    <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+                        <div className="bg-black bg-opacity-70 border-2 border-yellow-400 px-6 py-4 text-center">
+                            <p className="text-yellow-200 text-2xl font-bold mb-1">{levelUpNotice}</p>
+                            <p className="text-white text-xs">Short breather: rabbit upgraded</p>
+                        </div>
+                    </div>
+                )}
                 
                 {/* Mobile touch instruction */}
                 {gameStatus === GameStatus.Playing && !gameIsPaused && (
@@ -929,6 +1003,8 @@ const App: React.FC = () => {
                         xpGained={xpGained}
                         unlockedAchievements={unlockedAchievements}
                         progress={playerProgress}
+                        runLevel={runLevel}
+                        runAgeLabel={rabbitAgeLabel}
                     />
                 )}
                 

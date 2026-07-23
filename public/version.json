@@ -1,9 +1,9 @@
 {
-  "version": "1.2.4",
-  "buildDate": "2026-07-23T16:30:00Z",
+  "version": "1.2.5",
+  "buildDate": "2026-07-23T18:05:00Z",
   "features": [
-    "Runtime crash fix for mobile controls",
-    "Forced startup version check and refresh",
-    "Improved leaderboard API fallback compatibility"
+    "Reduced obstacle collision sensitivity for harder-impact crashes",
+    "Clear run-level announcements with visible age transitions",
+    "Improved rabbit head/eye visuals with directional turning perspective"
   ]
 }

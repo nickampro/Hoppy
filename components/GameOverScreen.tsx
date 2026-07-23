@@ -13,6 +13,8 @@ interface GameOverScreenProps {
   xpGained: number;
   unlockedAchievements: AchievementDefinition[];
   progress: PlayerProgress;
+  runLevel: number;
+  runAgeLabel: string;
 }
 
 export const GameOverScreen: React.FC<GameOverScreenProps> = ({
@@ -22,7 +24,9 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   rank,
   xpGained,
   unlockedAchievements,
-  progress
+  progress,
+  runLevel,
+  runAgeLabel,
 }) => {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -54,7 +58,8 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
           {rank !== null && (
             <p className="text-sm sm:text-base text-yellow-300 mb-2">Global Rank: #{rank}</p>
           )}
-          <p className="text-sm sm:text-base text-green-300">+{xpGained} XP | Level {progress.level}</p>
+          <p className="text-sm sm:text-base text-blue-200">Run Level {runLevel} | Age {runAgeLabel}</p>
+          <p className="text-sm sm:text-base text-green-300">+{xpGained} XP | Season Level {progress.level}</p>
         </div>
 
         {unlockedAchievements.length > 0 && (
