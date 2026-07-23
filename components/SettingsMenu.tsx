@@ -82,23 +82,23 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-2">
-      <div className="bg-white rounded-lg max-w-sm w-full max-h-[95vh] overflow-y-auto shadow-2xl">
+    <div className="absolute inset-0 bg-black bg-opacity-80 flex justify-center items-end sm:items-center z-50 p-2">
+      <div className="bg-white rounded-t-xl sm:rounded-lg max-w-sm w-full max-h-[78vh] sm:max-h-[95vh] overflow-y-auto shadow-2xl border-2 border-black">
         {/* Header */}
-        <div className="bg-blue-600 text-white p-3 rounded-t-lg flex justify-between items-center">
-          <h2 className="text-lg font-bold">⚙️ Settings</h2>
+        <div className="bg-[#3f3b36] text-[#f2edd8] p-3 rounded-t-xl sm:rounded-t-lg flex justify-between items-center border-b-2 border-black sticky top-0">
+          <h2 className="text-base font-bold">Settings</h2>
           <button
             onClick={onClose}
-            className="text-white hover:text-gray-200 text-2xl font-bold w-8 h-8 flex items-center justify-center"
+            className="text-[#f2edd8] text-2xl font-bold w-8 h-8 flex items-center justify-center"
           >
             ×
           </button>
         </div>
 
-        <div className="p-3 space-y-4">
+        <div className="p-3 space-y-3 text-sm">
           {/* Version & Updates */}
           <div className="border-b pb-3">
-            <h3 className="font-bold text-base mb-2">🔄 Version & Updates</h3>
+            <h3 className="font-bold text-sm mb-2">Version & Updates</h3>
             
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -150,8 +150,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
           </div>
 
           {/* Difficulty Settings */}
-          <div className="border-b pb-4">
-            <h3 className="font-bold text-lg mb-3">🎮 Difficulty</h3>
+          <div className="border-b pb-3">
+            <h3 className="font-bold text-sm mb-2">Difficulty</h3>
             
             <div className="space-y-3">
               <div 
@@ -172,8 +172,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     className="form-radio text-green-500"
                   />
                   <div>
-                    <span className="font-medium text-lg">🟢 Easy</span>
-                    <p className="text-sm text-gray-600">Double jump allowed (tap twice to jump in mid-air)</p>
+                    <span className="font-medium text-base">Easy</span>
+                    <p className="text-xs text-gray-600">Double jump allowed</p>
                     <p className="text-xs text-red-600 font-medium">⚠️ Leaderboard disabled in Easy mode</p>
                   </div>
                 </div>
@@ -197,8 +197,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
                     className="form-radio text-yellow-500"
                   />
                   <div>
-                    <span className="font-medium text-lg">🟡 Normal</span>
-                    <p className="text-sm text-gray-600">Standard physics (single jump only)</p>
+                    <span className="font-medium text-base">Normal</span>
+                    <p className="text-xs text-gray-600">Standard physics</p>
                     <p className="text-xs text-green-600 font-medium">🏆 Leaderboard enabled</p>
                   </div>
                 </div>
@@ -207,8 +207,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
           </div>
 
           {/* Audio Settings */}
-          <div className="border-b pb-4">
-            <h3 className="font-bold text-lg mb-3">🔊 Audio</h3>
+          <div className="border-b pb-3">
+            <h3 className="font-bold text-sm mb-2">Audio</h3>
             
             <label className="flex items-center justify-between">
               <span>Sound Effects</span>
@@ -240,8 +240,8 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
           </div>
 
           {/* Replay Settings */}
-          <div className="border-b pb-4">
-            <h3 className="font-bold text-lg mb-3">👻 Replay</h3>
+          <div className="border-b pb-3">
+            <h3 className="font-bold text-sm mb-2">Replay</h3>
 
             <label className="flex items-center justify-between">
               <span>Show Ghost Replay</span>
@@ -274,10 +274,10 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-100 p-4 rounded-b-lg text-center">
+          <div className="bg-gray-100 p-3 rounded-b-xl sm:rounded-b-lg text-center sticky bottom-0 border-t border-gray-300">
           <button
             onClick={onClose}
-            className="bg-blue-500 text-white px-8 py-3 rounded font-bold hover:bg-blue-600 active:bg-blue-700 text-lg touch-manipulation"
+            className="bg-[#3f3b36] text-[#f2edd8] px-6 py-2 rounded font-bold text-sm touch-manipulation border-2 border-black"
           >
             Close Settings
           </button>

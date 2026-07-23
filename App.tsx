@@ -78,8 +78,8 @@ const getRabbitLifeStats = (level: number): RabbitLifeStats => {
         return {
             ageLabel: level < 8 ? 'Baby' : 'Young',
             scale: 0.62 + t * 0.33,
-            jumpVelocity: 17 + t * 4,
-            moveSpeed: 3.7 + t * 1.3,
+            jumpVelocity: 18 + t * 4,
+            moveSpeed: 3.2 + t * 1.2,
         };
     }
 
@@ -170,6 +170,31 @@ const App: React.FC = () => {
     const runGhostFrames = useRef<GhostFrame[]>([]);
     const bestGhostRef = useRef<GhostFrame[]>([]);
     const invulnerableUntil = useRef(0);
+
+    const getRabbitHorizontalRange = useCallback((level: number, width: number) => {
+        const rabbitLife = getRabbitLifeStats(level);
+        const baseX = Math.max(34, Math.min(96, width * 0.14));
+        return {
+            baseX,
+            minX: Math.max(RABBIT_MIN_X, baseX - 24),
+            maxX: Math.min(width - RABBIT_WIDTH * rabbitLife.scale - 30, baseX + 96),
+            rabbitLife,
+        };
+    }, []);
+
+    const moveRabbitStep = useCallback((direction: 'left' | 'right', stepMultiplier = 1) => {
+        const { minX, maxX, rabbitLife } = getRabbitHorizontalRange(runLevel, sceneWidth);
+        const delta = rabbitLife.moveSpeed * stepMultiplier;
+        rabbitXRef.current = direction === 'left'
+            ? Math.max(minX, rabbitXRef.current - delta)
+            : Math.min(maxX, rabbitXRef.current + delta);
+        setRabbitFacing(direction === 'left' ? 'left' : 'right');
+        setRabbitX(rabbitXRef.current);
+    }, [getRabbitHorizontalRange, runLevel, sceneWidth]);
+
+    const handleJumpPress = useCallback(() => {
+        handleJump();
+    }, [handleJump]);
 
     const resetGame = useCallback(() => {
         rabbitY.current = GROUND_HEIGHT;
@@ -343,8 +368,6 @@ const App: React.FC = () => {
     }, []);
 
     const handleTouchJump = useCallback((e: TouchEvent) => {
-        const rabbitLife = getRabbitLifeStats(runLevel);
-        const currentMaxRabbitX = Math.max(RABBIT_MIN_X, sceneWidth - RABBIT_WIDTH * rabbitLife.scale - 30);
         // Don't handle touches on buttons, inputs, or other interactive elements
         const target = e.target as HTMLElement;
         if (target.tagName === 'BUTTON' || 
@@ -358,25 +381,8 @@ const App: React.FC = () => {
         }
         
         e.preventDefault();
-        const touch = e.touches[0];
-        const viewportWidth = window.innerWidth;
-
-        if (touch.clientX < viewportWidth * 0.33) {
-            rabbitXRef.current = Math.max(RABBIT_MIN_X, rabbitXRef.current - rabbitLife.moveSpeed * 7);
-            setRabbitFacing('left');
-            setRabbitX(rabbitXRef.current);
-            return;
-        }
-
-        if (touch.clientX > viewportWidth * 0.67) {
-            rabbitXRef.current = Math.min(currentMaxRabbitX, rabbitXRef.current + rabbitLife.moveSpeed * 7);
-            setRabbitFacing('right');
-            setRabbitX(rabbitXRef.current);
-            return;
-        }
-
-        handleJump();
-    }, [handleJump, runLevel, sceneWidth]);
+        handleJumpPress();
+    }, [handleJumpPress]);
 
     const handleNameSubmit = useCallback(async (name: string) => {
         const updatedProgress = savePlayerName(name);
@@ -512,24 +518,25 @@ const App: React.FC = () => {
         
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('keyup', handleKeyUp);
-        window.addEventListener('touchstart', handleTouchJump, { passive: false });
         window.addEventListener('click', handleClickJump);
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
-            window.removeEventListener('touchstart', handleTouchJump);
             window.removeEventListener('click', handleClickJump);
         };
-    }, [handleJump, handleTouchJump, handleClickJump, handleMovementDown, handleMovementUp]);
+    }, [handleJump, handleClickJump, handleMovementDown, handleMovementUp]);
   
     const gameLoop = useCallback((timestamp: number) => {
         if (gameStatus !== GameStatus.Playing || gameIsPaused || isCountingDown) return;
 
-        const rabbitLife = getRabbitLifeStats(runLevel);
-        const currentMaxRabbitX = Math.max(RABBIT_MIN_X, sceneWidth - RABBIT_WIDTH * rabbitLife.scale - 30);
+        const { minX, maxX, baseX, rabbitLife } = getRabbitHorizontalRange(runLevel, sceneWidth);
 
         setRabbitScale(rabbitLife.scale);
         setRabbitAgeLabel(rabbitLife.ageLabel);
+
+        if (rabbitXRef.current < minX || rabbitXRef.current > maxX) {
+            rabbitXRef.current = Math.min(maxX, Math.max(minX, rabbitXRef.current));
+        }
 
         const nextCapacity = getFamilyLifeCapacity(runLevel);
         if (nextCapacity > familyLifeCapacity) {
@@ -543,9 +550,16 @@ const App: React.FC = () => {
         rabbitY.current += rabbitVelocityY.current;
 
         if (moveLeftPressed.current && !moveRightPressed.current) {
-            rabbitXRef.current = Math.max(RABBIT_MIN_X, rabbitXRef.current - rabbitLife.moveSpeed);
+            rabbitXRef.current = Math.max(minX, rabbitXRef.current - rabbitLife.moveSpeed);
         } else if (moveRightPressed.current && !moveLeftPressed.current) {
-            rabbitXRef.current = Math.min(currentMaxRabbitX, rabbitXRef.current + rabbitLife.moveSpeed);
+            rabbitXRef.current = Math.min(maxX, rabbitXRef.current + rabbitLife.moveSpeed);
+        } else {
+            const returnStep = Math.max(1.2, rabbitLife.moveSpeed * 0.35);
+            if (rabbitXRef.current > baseX) {
+                rabbitXRef.current = Math.max(baseX, rabbitXRef.current - returnStep);
+            } else if (rabbitXRef.current < baseX) {
+                rabbitXRef.current = Math.min(baseX, rabbitXRef.current + returnStep);
+            }
         }
 
         if (rabbitY.current < GROUND_HEIGHT) {
@@ -586,14 +600,14 @@ const App: React.FC = () => {
         
         trees.current = trees.current.filter(tree => tree.x > -Math.max(tree.width, TREE_WIDTH));
 
-        const spawnInterval = Math.max(560, 970 - (runLevel - 1) * 30);
+        const spawnInterval = Math.max(640, 1120 - (runLevel - 1) * 24);
         if (timestamp - lastTreeTime.current > spawnInterval) {
             const lastTree = trees.current[trees.current.length - 1];
             if (!lastTree || lastTree.x < sceneWidth - (220 + Math.random() * 260) ) {
                 // Progressive difficulty: start with small trees, gradually increase
                 const difficultyProgress = Math.min(newScore / 35, 1);
-                const currentMinHeight = MIN_TREE_HEIGHT + (LATE_GAME_MIN_HEIGHT - MIN_TREE_HEIGHT) * difficultyProgress;
-                const currentMaxHeight = MAX_TREE_HEIGHT + (LATE_GAME_MAX_HEIGHT - MAX_TREE_HEIGHT) * difficultyProgress;
+            const currentMinHeight = Math.max(24, MIN_TREE_HEIGHT - 12) + (LATE_GAME_MIN_HEIGHT - Math.max(24, MIN_TREE_HEIGHT - 12)) * difficultyProgress;
+            const currentMaxHeight = Math.max(74, MAX_TREE_HEIGHT - 16) + (LATE_GAME_MAX_HEIGHT - Math.max(74, MAX_TREE_HEIGHT - 16)) * difficultyProgress;
 
                 const obstacleRoll = Math.random();
                 const obstacleType: TreeType['type'] = obstacleRoll < 0.58 ? 'tree' : obstacleRoll < 0.83 ? 'rock' : 'river';
@@ -604,7 +618,7 @@ const App: React.FC = () => {
                 // Spawn trees well off-screen to ensure smooth entry on all screen sizes
                 trees.current.push({
                     id: Date.now(),
-                    x: sceneWidth + obstacleWidth + 50,
+                    x: sceneWidth + obstacleWidth + 70,
                     width: obstacleWidth,
                     type: obstacleType,
                     height: newHeight,
@@ -689,6 +703,7 @@ const App: React.FC = () => {
         settings,
         sceneWidth,
         familyLifeCapacity,
+        getRabbitHorizontalRange,
         livesRemaining,
     ]);
 
@@ -756,15 +771,20 @@ const App: React.FC = () => {
                 {/* Settings Button */}
                 <button
                     onClick={handleSettingsToggle}
-                    className="absolute top-2 right-2 text-white transition-all z-40 w-11 h-11 flex items-center justify-center text-xl border-2 border-black"
+                    className="absolute top-2 right-2 text-[#f0ead2] transition-all z-40 w-11 h-11 flex items-center justify-center border-2 border-black"
                     title={gameStatus === GameStatus.Playing ? (gameIsPaused ? "Resume Game" : "Pause Game") : "Settings"}
                     style={{ 
-                        background: 'linear-gradient(180deg, #2f6f9f 0%, #18466a 100%)',
+                        background: 'linear-gradient(180deg, #4c4a46 0%, #2d2b28 100%)',
                         borderRadius: '2px',
-                        boxShadow: '0 4px 0 #0c2338'
+                        boxShadow: '0 4px 0 #141311'
                     }}
                 >
-                    {gameStatus === GameStatus.Playing && gameIsPaused ? '▶' : '⚙'}
+                    <span className="relative block w-5 h-5">
+                        <span className="absolute inset-x-[6px] top-0 h-full bg-[#f0ead2]" />
+                        <span className="absolute inset-y-[6px] left-0 w-full bg-[#f0ead2]" />
+                        <span className="absolute inset-[3px] border-2 border-[#2d2b28] bg-[#f0ead2]" />
+                        <span className="absolute inset-[7px] bg-[#2d2b28]" />
+                    </span>
                 </button>
 
                 <Scoreboard
@@ -782,8 +802,37 @@ const App: React.FC = () => {
                 {gameStatus === GameStatus.Playing && !gameIsPaused && (
                     <div className="absolute bottom-4 left-4 right-4 text-center pointer-events-none sm:hidden">
                         <p className="text-xs text-white bg-black bg-opacity-50 rounded px-2 py-1 inline-block">
-                            Tap left/right to move, tap center to jump
+                            Use the on-screen controls
                         </p>
+                    </div>
+                )}
+
+                {gameStatus === GameStatus.Playing && !gameIsPaused && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 sm:hidden">
+                        <button
+                            onTouchStart={(e) => { e.preventDefault(); moveRabbitStep('left', 4); }}
+                            onClick={() => moveRabbitStep('left', 4)}
+                            className="w-14 h-14 border-2 border-black text-white text-2xl"
+                            style={{ background: 'linear-gradient(180deg, #4c4a46 0%, #2d2b28 100%)', boxShadow: '0 4px 0 #141311' }}
+                        >
+                            ◀
+                        </button>
+                        <button
+                            onTouchStart={(e) => { e.preventDefault(); handleJumpPress(); }}
+                            onClick={handleJumpPress}
+                            className="w-16 h-16 border-2 border-black text-white text-lg font-bold"
+                            style={{ background: 'linear-gradient(180deg, #3c8c4d 0%, #1d6b2f 100%)', boxShadow: '0 4px 0 #0f3c1c' }}
+                        >
+                            JUMP
+                        </button>
+                        <button
+                            onTouchStart={(e) => { e.preventDefault(); moveRabbitStep('right', 4); }}
+                            onClick={() => moveRabbitStep('right', 4)}
+                            className="w-14 h-14 border-2 border-black text-white text-2xl"
+                            style={{ background: 'linear-gradient(180deg, #4c4a46 0%, #2d2b28 100%)', boxShadow: '0 4px 0 #141311' }}
+                        >
+                            ▶
+                        </button>
                     </div>
                 )}
 

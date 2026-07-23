@@ -5,11 +5,51 @@ const configuredBaseUrl = typeof viteEnv.VITE_API_BASE_URL === 'string' ? viteEn
 
 const normalizeBaseUrl = (url: string): string => url.replace(/\/$/, '');
 
-const API_BASE_URL = configuredBaseUrl
-    ? normalizeBaseUrl(configuredBaseUrl)
-    : Boolean(viteEnv.PROD)
-        ? `${window.location.origin}/api`
-        : 'http://localhost:3001/api';
+const getApiBaseUrlCandidates = (): string[] => {
+    if (!Boolean(viteEnv.PROD)) {
+        return ['http://localhost:3001/api'];
+    }
+
+    const candidates = new Set<string>();
+
+    if (configuredBaseUrl) {
+        candidates.add(normalizeBaseUrl(configuredBaseUrl));
+    }
+
+    candidates.add(`${window.location.origin}/api`);
+
+    const hostname = window.location.hostname;
+    if (hostname.startsWith('hoppy.')) {
+        candidates.add(`https://hoppy-api.${hostname.slice('hoppy.'.length)}/api`);
+    }
+
+    candidates.add('https://hoppy-api.caprover.nickam.cc/api');
+
+    return Array.from(candidates);
+};
+
+const API_BASE_URL_CANDIDATES = getApiBaseUrlCandidates();
+
+const fetchFromApiCandidates = async (path: string, init?: RequestInit): Promise<Response> => {
+    let lastError: Error | null = null;
+
+    for (const baseUrl of API_BASE_URL_CANDIDATES) {
+        try {
+            const response = await fetch(`${baseUrl}${path}`, init);
+            if (response.ok) {
+                return response;
+            }
+
+            if (response.status < 500 && response.status !== 404) {
+                return response;
+            }
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error('Unknown API error');
+        }
+    }
+
+    throw lastError || new Error('No reachable API base URL');
+};
 
 // Generate or retrieve device ID for cross-device sync
 export const getDeviceId = (): string => {
@@ -33,7 +73,7 @@ export const submitScoreToAPI = async (playerName: string, score: number): Promi
         const deviceId = getDeviceId();
         const gameSessionId = 'session-' + Date.now();
         
-        const response = await fetch(`${API_BASE_URL}/scores`, {
+        const response = await fetchFromApiCandidates('/scores', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -78,7 +118,7 @@ export const getGlobalLeaderboard = async (limit: number = 100, type: 'global' |
     error?: string;
 }> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/leaderboard?limit=${limit}&type=${type}`);
+        const response = await fetchFromApiCandidates(`/leaderboard?limit=${limit}&type=${type}`);
         const data = await response.json();
         
         if (!response.ok) {
@@ -117,7 +157,7 @@ export const getUserScores = async (limit: number = 10): Promise<{
 }> => {
     try {
         const deviceId = getDeviceId();
-        const response = await fetch(`${API_BASE_URL}/user/${deviceId}/scores?limit=${limit}`);
+        const response = await fetchFromApiCandidates(`/user/${deviceId}/scores?limit=${limit}`);
         const data = await response.json();
         
         if (!response.ok) {
@@ -145,7 +185,7 @@ export const isAPIAvailable = async (): Promise<boolean> => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
         
-        const response = await fetch(`${API_BASE_URL}/health`, {
+        const response = await fetchFromApiCandidates('/health', {
             method: 'GET',
             signal: controller.signal
         });

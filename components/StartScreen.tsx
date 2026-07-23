@@ -84,9 +84,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart, progress }) =
         {/* Quick Controls Info */}
         <div className="text-xs sm:text-sm text-gray-400 mt-4">
           <p>
-            <span className="hidden sm:inline">Press SPACE or UP ARROW</span>
-            <span className="sm:hidden">Press SPACE or UP ARROW</span>
-            {" "}to jump
+            <span className="hidden sm:inline">SPACE/UP jumps, LEFT/RIGHT moves</span>
+            <span className="sm:hidden">Use the bottom buttons to move and jump</span>
           </p>
         </div>
       </div>
