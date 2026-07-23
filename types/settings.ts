@@ -9,7 +9,7 @@ export interface GameSettings {
 export const DEFAULT_SETTINGS: GameSettings = {
   difficulty: 'normal',
   soundEnabled: true,
-  ghostReplayEnabled: true,
+  ghostReplayEnabled: false,
   version: '1.1.0'
 };
 

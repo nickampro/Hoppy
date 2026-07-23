@@ -1,7 +1,7 @@
 import { SETTINGS_STORAGE_KEY } from '../types/settings';
 
 // Version management for PWA cache busting
-export const APP_VERSION = '1.2.5';
+export const APP_VERSION = '1.2.6';
 
 export const checkForUpdates = async (): Promise<{
     updateAvailable: boolean;

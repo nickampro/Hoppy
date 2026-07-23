@@ -1,9 +1,9 @@
 {
-  "version": "1.2.5",
-  "buildDate": "2026-07-23T18:05:00Z",
+  "version": "1.2.6",
+  "buildDate": "2026-07-23T18:30:00Z",
   "features": [
-    "Reduced obstacle collision sensitivity for harder-impact crashes",
-    "Clear run-level announcements with visible age transitions",
-    "Improved rabbit head/eye visuals with directional turning perspective"
+    "Ghost replay now ends at the recorded death point",
+    "Stronger level-up announcement pause and clearer run-age messaging",
+    "Rabbit visual refresh with cleaner head/eyes and 3D-like turn effect"
   ]
 }
